@@ -13,12 +13,12 @@
 
 ServoBus SERVO;
 // === EDIT THESE TO MATCH YOUR WIRING ===
-Leg::Map legMap{};
-Spine::Map spineMap{ .spinePitch = 10 };
-Head::Map headMap{ .jaw = 11, .neckPitch = 12 };
-Neck::Map neckMap{ .yaw = 13, .pitch = 12 };
-Tail::Map tailMap{ .wag = 14 };
-Pelvis::Map pelvisMap{ .roll = 15 };
+Spine::Map  spineMap;  spineMap.spinePitch = 10;
+Head::Map   headMap;   headMap.jaw = 11;   headMap.neckPitch = 12;
+Neck::Map   neckMap;   neckMap.yaw = 13;   neckMap.pitch = 12;
+Tail::Map   tailMap;   tailMap.wag = 14;
+Pelvis::Map pelvisMap; pelvisMap.roll = 15;
+
 
 void setup() {
   Serial.begin(115200);
