@@ -3,11 +3,19 @@
 #include <Adafruit_PWMServoDriver.h>
 
 struct ServoLimits {
-  uint16_t minPulse = 500;   // µs
-  uint16_t maxPulse = 2500;  // µs
-  float minDeg = 0.0f;
-  float maxDeg = 180.0f;
+  uint16_t minPulse;
+  uint16_t maxPulse;
+  float    minDeg;
+  float    maxDeg;
+
+  // Explicit ctor so ServoLimits{...} and default construction both work
+  constexpr ServoLimits(uint16_t minP = 500,
+                        uint16_t maxP = 2500,
+                        float    minD = 0.0f,
+                        float    maxD = 180.0f)
+  : minPulse(minP), maxPulse(maxP), minDeg(minD), maxDeg(maxD) {}
 };
+
 
 class ServoBus {
 public:
