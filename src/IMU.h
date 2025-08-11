@@ -1,10 +1,18 @@
 #pragma once
 #include <Arduino.h>
-// #define IMU_SENSOR_ICM20948
-#define IMU_SENSOR_MPU6050
-#define IMU_SENSOR_ICM20948
-// #define IMU_SENSOR_MPU6050
 
+// ===================== Sensor selection =====================
+// Prefer setting this in platformio.ini build_flags, e.g.:
+//   build_flags = -DIMU_SENSOR_MPU6050
+// or
+//   build_flags = -DIMU_SENSOR_ICM20948
+//
+// If neither is provided, we default to MPU6050 for convenience.
+
+#if !defined(IMU_SENSOR_MPU6050) && !defined(IMU_SENSOR_ICM20948)
+  #define IMU_SENSOR_MPU6050
+#endif
+// ============================================================
 
 struct ImuState {
   float roll_deg  = 0.0f;  // right down is + roll
@@ -24,17 +32,12 @@ struct ImuGains {
 };
 
 namespace IMU {
-  // Compile-time select ONE:
-  // #define IMU_SENSOR_ICM20948
-  // #define IMU_SENSOR_MPU6050
-  // If none defined here, IMU.cpp defaults to MPU6050.
-
   bool begin();                 // init sensor + filter
-  void startTask(uint32_t hz);  // spawn FreeRTOS task to run IMU loop
+  void startTask(uint32_t hz);  // spawn FreeRTOS task to run IMU loop at ~hz
   void get(ImuState& out);      // copy latest filtered state (thread-safe)
   void setOffsets(float roll0_deg, float pitch0_deg, float yaw0_deg);
   void setGains(const ImuGains& g);
   ImuGains getGains();
-  void enable(bool on);
+  void enable(bool on);         // logical enable (your main loop already checks this)
   bool isEnabled();
 }

@@ -1,5 +1,6 @@
 #include "Leg_Function.h"
 #include <math.h>
+
 namespace Leg {
 
 static ServoBus* SB = nullptr;
@@ -27,7 +28,6 @@ static ServoLimits LIM_FOOT  (500, 2500,  10.0f, 170.0f);
 static ServoLimits LIM_TOE   (500, 2500,  10.0f, 170.0f);
 
 // ----------------- Internal gait state -----------------
-enum Mode { IDLE, WALK_FWD, WALK_BWD, TURN_L, TURN_R };
 static Mode  g_mode = IDLE;
 
 static float g_speed_hz   = 0.7f;  // cycles per second
@@ -47,6 +47,7 @@ static inline float lerp(float a, float b, float t) { return a + (b - a) * t; }
 
 // Convert normalized [-1..1] swing/lift signals into joint angles
 static void writeLeftLeg(float swing, float lift, float posture01) {
+  if (!SB) return;
   // swing: fore/aft (hips), lift: up during swing (knee/ankle/toe/foot)
   const float hip   = NEUTRAL_HIP   + swing * (HIP_STRIDE_SCALE   * g_stride_amp);
   const float knee  = NEUTRAL_KNEE  - lift  * (KNEE_STRIDE_SCALE  * g_lift_amp);
@@ -64,6 +65,7 @@ static void writeLeftLeg(float swing, float lift, float posture01) {
 }
 
 static void writeRightLeg(float swing, float lift, float posture01) {
+  if (!SB) return;
   // Mirror the left; adjust signs if your mechanics require
   const float hip   = NEUTRAL_HIP   + swing * (HIP_STRIDE_SCALE   * g_stride_amp);
   const float knee  = NEUTRAL_KNEE  - lift  * (KNEE_STRIDE_SCALE  * g_lift_amp);
@@ -97,34 +99,35 @@ void begin(ServoBus* bus, const Map& map) {
   SB = bus;
   CH = map;
 
+  if (!SB) return;
+
   // Attach with limits (tweak per joint if needed)
-  if (SB) {
-    SB->attach(CH.L_hip,   LIM_HIP);
-    SB->attach(CH.L_knee,  LIM_KNEE);
-    SB->attach(CH.L_ankle, LIM_ANKLE);
-    SB->attach(CH.L_foot,  LIM_FOOT);
-    SB->attach(CH.L_toe,   LIM_TOE);
+  SB->attach(CH.L_hip,   LIM_HIP);
+  SB->attach(CH.L_knee,  LIM_KNEE);
+  SB->attach(CH.L_ankle, LIM_ANKLE);
+  SB->attach(CH.L_foot,  LIM_FOOT);
+  SB->attach(CH.L_toe,   LIM_TOE);
 
-    SB->attach(CH.R_hip,   LIM_HIP);
-    SB->attach(CH.R_knee,  LIM_KNEE);
-    SB->attach(CH.R_ankle, LIM_ANKLE);
-    SB->attach(CH.R_foot,  LIM_FOOT);
-    SB->attach(CH.R_toe,   LIM_TOE);
+  SB->attach(CH.R_hip,   LIM_HIP);
+  SB->attach(CH.R_knee,  LIM_KNEE);
+  SB->attach(CH.R_ankle, LIM_ANKLE);
+  SB->attach(CH.R_foot,  LIM_FOOT);
+  SB->attach(CH.R_toe,   LIM_TOE);
 
-    // Move to neutral stance
-    SB->writeDegrees(CH.L_hip,   NEUTRAL_HIP);
-    SB->writeDegrees(CH.L_knee,  NEUTRAL_KNEE);
-    SB->writeDegrees(CH.L_ankle, NEUTRAL_ANKLE);
-    SB->writeDegrees(CH.L_foot,  NEUTRAL_FOOT);
-    SB->writeDegrees(CH.L_toe,   NEUTRAL_TOE);
+  // Move to neutral stance
+  SB->writeDegrees(CH.L_hip,   NEUTRAL_HIP);
+  SB->writeDegrees(CH.L_knee,  NEUTRAL_KNEE);
+  SB->writeDegrees(CH.L_ankle, NEUTRAL_ANKLE);
+  SB->writeDegrees(CH.L_foot,  NEUTRAL_FOOT);
+  SB->writeDegrees(CH.L_toe,   NEUTRAL_TOE);
 
-    SB->writeDegrees(CH.R_hip,   NEUTRAL_HIP);
-    SB->writeDegrees(CH.R_knee,  NEUTRAL_KNEE);
-    SB->writeDegrees(CH.R_ankle, NEUTRAL_ANKLE);
-    SB->writeDegrees(CH.R_foot,  NEUTRAL_FOOT);
-    SB->writeDegrees(CH.R_toe,   NEUTRAL_TOE);
-  }
-  g_mode = IDLE;
+  SB->writeDegrees(CH.R_hip,   NEUTRAL_HIP);
+  SB->writeDegrees(CH.R_knee,  NEUTRAL_KNEE);
+  SB->writeDegrees(CH.R_ankle, NEUTRAL_ANKLE);
+  SB->writeDegrees(CH.R_foot,  NEUTRAL_FOOT);
+  SB->writeDegrees(CH.R_toe,   NEUTRAL_TOE);
+
+  g_mode  = IDLE;
   g_t0_ms = millis();
 }
 
@@ -133,22 +136,19 @@ void walkForward(float speed_hz) {
   g_speed_hz = clampf(speed_hz, 0.1f, 3.0f);
   g_t0_ms = millis();
 }
-
 void walkBackward(float speed_hz) {
   g_mode = WALK_BWD;
   g_speed_hz = clampf(speed_hz, 0.1f, 3.0f);
   g_t0_ms = millis();
 }
-
-void turnLeft(float rate) {
+void turnLeft(float rate_hz) {
   g_mode = TURN_L;
-  g_speed_hz = clampf(rate, 0.1f, 3.0f);
+  g_speed_hz = clampf(rate_hz, 0.1f, 3.0f);
   g_t0_ms = millis();
 }
-
-void turnRight(float rate) {
+void turnRight(float rate_hz) {
   g_mode = TURN_R;
-  g_speed_hz = clampf(rate, 0.1f, 3.0f);
+  g_speed_hz = clampf(rate_hz, 0.1f, 3.0f);
   g_t0_ms = millis();
 }
 
@@ -159,29 +159,41 @@ void stop() {
   writeRightLeg(0.0f, 0.0f, g_posture);
 }
 
+void emergencyStop() {
+  g_mode = IDLE;
+  if (!SB) return;
+  // immediate neutral with direct writes (same as stop, but call explicitly)
+  writeLeftLeg(0.0f, 0.0f, 0.5f);
+  writeRightLeg(0.0f, 0.0f, 0.5f);
+}
+
 void setGait(float speed_hz, float stride_amp, float lift_amp, const String& mode) {
   g_speed_hz   = clampf(speed_hz,   0.05f, 4.0f);
   g_stride_amp = clampf(stride_amp, 0.0f,  1.0f);
   g_lift_amp   = clampf(lift_amp,   0.0f,  1.0f);
 
   if (mode == "run") {
-    // example: slightly higher frequency & lower lift for “run”
+    // slightly higher frequency & lower lift for “run”
     g_speed_hz   = clampf(g_speed_hz * 1.3f, 0.1f, 5.0f);
     g_lift_amp   = clampf(g_lift_amp * 0.8f, 0.0f, 1.0f);
   }
-  // keep current mode; caller can switch via walkForward/Backward/turn
 }
 
-void adjustSpeed(float delta_hz) {
-  g_speed_hz = clampf(g_speed_hz + delta_hz, 0.05f, 4.0f);
-}
+void adjustSpeed(float delta_hz) { g_speed_hz = clampf(g_speed_hz + delta_hz, 0.05f, 4.0f); }
+void setStride(float value01)    { g_stride_amp = clampf(value01, 0.0f, 1.0f); }
+void setPosture(float level01)   { g_posture    = clampf(level01, 0.0f, 1.0f); }
 
-void setStride(float value) {
-  g_stride_amp = clampf(value, 0.0f, 1.0f);
-}
-
-void setPosture(float level01) {
-  g_posture = clampf(level01, 0.0f, 1.0f);
+// Optional: map {command, phase} contract to motions.
+// Returns true if recognized.
+bool handleAction(const String& command, const String& phase) {
+  // phase is currently ignored for continuous gaits, but could be used to
+  // ramp speeds or implement tap-to-step patterns.
+  if (command == "move_forward")  { walkForward(g_speed_hz);  return true; }
+  if (command == "move_backward") { walkBackward(g_speed_hz); return true; }
+  if (command == "move_left")     { turnLeft(g_speed_hz);     return true; }
+  if (command == "move_right")    { turnRight(g_speed_hz);    return true; }
+  if (command == "stop")          { stop();                   return true; }
+  return false;
 }
 
 // Call this regularly (e.g., each loop())
@@ -224,5 +236,12 @@ void tick() {
   writeLeftLeg (swingL, liftL, g_posture);
   writeRightLeg(swingR, liftR, g_posture);
 }
+
+// --------------- State queries ---------------
+Mode  mode()       { return g_mode; }
+float speedHz()    { return g_speed_hz; }
+float strideAmp()  { return g_stride_amp; }
+float liftAmp()    { return g_lift_amp; }
+float posture01()  { return g_posture; }
 
 } // namespace Leg

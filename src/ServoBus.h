@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <Adafruit_PWMServoDriver.h>
 
+// ====================== Servo limits & mapping ======================
 // Per-channel motion limits + mapping (µs and degrees)
 struct ServoLimits {
   uint16_t minPulse;   // microseconds (typical 500–700)
@@ -17,6 +18,7 @@ struct ServoLimits {
   : minPulse(minP), maxPulse(maxP), minDeg(minD), maxDeg(maxD) {}
 };
 
+// ============================== ServoBus ==============================
 class ServoBus {
 public:
   // Initialize the PCA9685 and set the servo frequency (Hz). Returns true if OK.
@@ -25,11 +27,20 @@ public:
   // Attach a logical "servo" to a PCA9685 channel with limits.
   void attach(uint8_t channel, const ServoLimits& limits = ServoLimits());
 
+  // Detach a channel (turns output off).
+  void detach(uint8_t channel);
+
+  // Update limits for an already-attached channel.
+  void setLimits(uint8_t channel, const ServoLimits& limits);
+
   // Write directly in microseconds (mapped to PCA9685 ticks).
   void writeMicroseconds(uint8_t channel, uint16_t us);
 
   // Write in degrees (mapped through per-channel limits to microseconds).
   void writeDegrees(uint8_t channel, float deg);
+
+  // Convenience: write the neutral (mid) angle for the channel’s limits.
+  void writeNeutral(uint8_t channel);
 
   // Turn all channels off (no pulses).
   void setAllOff();
@@ -38,15 +49,15 @@ public:
   void setFrequency(float freq_hz);
 
   // Quick query helpers
-  inline bool isAttached(uint8_t ch) const { return (ch < 16) && _attached[ch]; }
-  inline float frequency() const { return _freq; }
+  inline bool  isAttached(uint8_t ch) const { return (ch < 16) && _attached[ch]; }
+  inline float frequency() const            { return _freq; }
 
 private:
   Adafruit_PWMServoDriver _pwm = Adafruit_PWMServoDriver(0x40);
 
   ServoLimits _limits[16];
-  bool       _attached[16] = { false };
-  float      _freq         = 50.0f;
+  bool        _attached[16] = { false };
+  float       _freq         = 50.0f;
 
   // Conversions
   uint16_t _usToTicks(uint16_t us) const;

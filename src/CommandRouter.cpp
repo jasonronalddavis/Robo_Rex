@@ -1,6 +1,7 @@
 #include "CommandRouter.h"
 #include <ArduinoJson.h>
-#include "ServoBus.h"
+
+// Motion modules
 #include "Servo_Functions/Leg_Function.h"
 #include "Servo_Functions/Spine_Function.h"
 #include "Servo_Functions/Head_Function.h"
@@ -8,110 +9,249 @@
 #include "Servo_Functions/Tail_Function.h"
 #include "Servo_Functions/Pelvis_Function.h"
 
-// Include IMU controls if present
+// Optional stabilization (already used in your project)
 #include "IMU.h"
 
-// --------- helpers ---------
-static float getOrF(const JsonVariantConst& v, const char* key, float defVal) {
-  if (!v.isNull() && v.containsKey(key)) return v[key].as<float>();
-  return defVal;
-}
-
-static const char* getOrCStr(const JsonVariantConst& v, const char* key, const char* defVal) {
-  if (!v.isNull() && v.containsKey(key)) {
-    const char* s = v[key];
-    return s ? s : defVal;
-  }
-  return defVal;
-}
-
-// --------- router ----------
 namespace CommandRouter {
 
-void handle(const String& s) {
-  // Try JSON first
-  StaticJsonDocument<384> doc;  // a bit larger for future fields
-  DeserializationError err = deserializeJson(doc, s);
+// ---------------- Internal state ----------------
+static float g_pelvisLevel = 0.50f; // 0..1
+static float g_spineLevel  = 0.50f; // 0..1
+static float g_headPitch   = 0.50f; // 0..1  (up/down)
+static float g_neckYaw     = 0.50f; // 0..1  (left/right)
+static float g_tailYaw     = 0.50f; // 0..1  (left/right)
 
-  if (!err) {
-    String cmd = doc["cmd"] | "";
+static const float NUDGE_FINE = 0.02f;
 
-    // ---- Locomotion ----
-    if (cmd == "rex_walk_forward") { Leg::walkForward(getOrF(doc, "speed", 0.7f)); return; }
-    if (cmd == "rex_walk_backward"){ Leg::walkBackward(getOrF(doc, "speed", 0.7f)); return; }
-    if (cmd == "rex_turn_left")    { Leg::turnLeft   (getOrF(doc, "rate",  0.6f)); return; }
-    if (cmd == "rex_turn_right")   { Leg::turnRight  (getOrF(doc, "rate",  0.6f)); return; }
-    if (cmd == "rex_run")          { Leg::setGait    (getOrF(doc,"factor", 1.5f), 0.6f, 0.4f, "run"); return; }
-    if (cmd == "rex_stop")         { Leg::stop(); return; }
+static inline float clamp01(float x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
 
-    if (cmd == "rex_gait") {
-      const char* mode = getOrCStr(doc, "mode", "walk");   // proper ArduinoJson fallback
-      Leg::setGait(getOrF(doc,"speed",  0.7f),
-                   getOrF(doc,"stride", 0.6f),
-                   getOrF(doc,"lift",   0.4f),
-                   String(mode));
-      return;
-    }
+// If your Head/Neck/Tail use different API names, edit in one place here:
+static inline void applyHeadPitch(float level01) {
+  (void)level01;
+  // Example:
+  // Head::setPitch(level01);
+}
 
-    if (cmd == "rex_speed_adjust") { Leg::adjustSpeed(getOrF(doc, "delta",  0.1f)); return; }
-    if (cmd == "rex_stride_set")   { Leg::setStride  (getOrF(doc, "value",  0.6f)); return; }
-    if (cmd == "rex_posture")      { Leg::setPosture (getOrF(doc, "level",  0.5f)); return; }
+static inline void applyNeckYaw(float level01) {
+  (void)level01;
+  // Example:
+  // Neck::setYaw(level01);
+}
 
-    // ---- Body (spine / tail / head / pelvis) ----
-    if (cmd == "rex_spine_up")     { Spine::up(); return; }
-    if (cmd == "rex_spine_down")   { Spine::down(); return; }
-    if (cmd == "rex_spine_set")    { Spine::set(getOrF(doc, "level", 0.5f)); return; }
+static inline void applyTailYaw(float level01) {
+  (void)level01;
+  // Example:
+  // Tail::setYaw(level01);
+}
 
-    if (cmd == "rex_tail_wag")     { Tail::wag(); return; }
-    if (cmd == "rex_tail_set")     { Tail::set(getOrF(doc, "level", 0.5f)); return; }
+static void applyAnalogs() {
+  Pelvis::stabilize(g_pelvisLevel);
+  Spine::set(g_spineLevel);
+  applyHeadPitch(g_headPitch);
+  applyNeckYaw(g_neckYaw);
+  applyTailYaw(g_tailYaw);
+}
 
-    if (cmd == "rex_roar")         { Head::roar(); return; }
-    if (cmd == "rex_mouth_open")   { Head::mouthOpen(); return; }
-    if (cmd == "rex_mouth_close")  { Head::mouthClose(); return; }
+void begin() {
+  g_pelvisLevel = 0.50f;
+  g_spineLevel  = 0.50f;
+  g_headPitch   = 0.50f;
+  g_neckYaw     = 0.50f;
+  g_tailYaw     = 0.50f;
+  applyAnalogs();
+}
 
-    if (cmd == "rex_pelvis_set")   { Pelvis::set(getOrF(doc, "level", 0.5f)); return; }
+// ---------------- Helpers for new JSON schema ----------------
+static void handleLegs(const String& command, const String& phase) {
+  if (phase == "start" || phase == "hold") {
+    if (command == "move_forward")       { Leg::walkForward(0.8f); }
+    else if (command == "move_backward") { Leg::walkBackward(0.8f); }
+    else if (command == "move_left")     { Leg::turnLeft(0.8f); }
+    else if (command == "move_right")    { Leg::turnRight(0.8f); }
+  } else if (phase == "stop") {
+    Leg::stop();
+  }
+}
 
-    // ---- IMU / stabilization (optional; requires IMU.h) ----
-    if (cmd == "rex_stab_enable")  { IMU::enable(true);  return; }
-    if (cmd == "rex_stab_disable") { IMU::enable(false); return; }
+static void handlePelvis(const String& command, const String& phase) {
+  if (phase == "start" || phase == "hold") {
+    if (command == "pelvis_up")   g_pelvisLevel = clamp01(g_pelvisLevel + NUDGE_FINE);
+    if (command == "pelvis_down") g_pelvisLevel = clamp01(g_pelvisLevel - NUDGE_FINE);
+    Pelvis::stabilize(g_pelvisLevel);
+  } else if (phase == "stop") {
+    // Keep last position (or uncomment to re-center):
+    // g_pelvisLevel = 0.5f; Pelvis::stabilize(g_pelvisLevel);
+  }
+}
 
-    if (cmd == "rex_stab_cal") {
-      // If caller passes explicit zeros, they’ll overwrite offsets—which is fine for manual calibration
-      IMU::setOffsets(getOrF(doc,"roll0",  0.0f),
-                      getOrF(doc,"pitch0", 0.0f),
-                      getOrF(doc,"yaw0",   0.0f));
-      return;
-    }
+static void handleSpine(const String& command, const String& phase) {
+  if (phase == "start" || phase == "hold") {
+    if (command == "spine_up")   g_spineLevel = clamp01(g_spineLevel + NUDGE_FINE);
+    if (command == "spine_down") g_spineLevel = clamp01(g_spineLevel - NUDGE_FINE);
+    Spine::set(g_spineLevel);
+  } else if (phase == "stop") {
+    // Keep last position (or re-center if you prefer)
+  }
+}
 
-    if (cmd == "rex_stab_gains") {
-      ImuGains g = IMU::getGains();
-      if (doc.containsKey("k_roll"))   g.k_roll  = doc["k_roll"].as<float>();
-      if (doc.containsKey("b_roll"))   g.b_roll  = doc["b_roll"].as<float>();
-      if (doc.containsKey("k_pitch"))  g.k_pitch = doc["k_pitch"].as<float>();
-      if (doc.containsKey("b_pitch"))  g.b_pitch = doc["b_pitch"].as<float>();
-      IMU::setGains(g);
-      return;
-    }
+static void handleHead(const String& command, const String& phase) {
+  if (phase == "start" || phase == "hold") {
+    if (command == "head_up")   g_headPitch = clamp01(g_headPitch + NUDGE_FINE);
+    if (command == "head_down") g_headPitch = clamp01(g_headPitch - NUDGE_FINE);
+    applyHeadPitch(g_headPitch);
+  }
+}
 
-    // Unknown JSON command
-    #ifdef SERIAL_DEBUG
-    Serial.print("Unknown JSON cmd: "); Serial.println(cmd);
-    #endif
+static void handleNeck(const String& command, const String& phase) {
+  if (phase == "start" || phase == "hold") {
+    if (command == "neck_left")  g_neckYaw = clamp01(g_neckYaw - NUDGE_FINE);
+    if (command == "neck_right") g_neckYaw = clamp01(g_neckYaw + NUDGE_FINE);
+    applyNeckYaw(g_neckYaw);
+  }
+}
+
+static void handleTail(const String& command, const String& phase) {
+  if (phase == "start" || phase == "hold") {
+    if (command == "tail_left")  g_tailYaw = clamp01(g_tailYaw - NUDGE_FINE);
+    if (command == "tail_right") g_tailYaw = clamp01(g_tailYaw + NUDGE_FINE);
+    applyTailYaw(g_tailYaw);
+  }
+}
+
+// Fallback for full-body directional (if you choose to use it)
+static void handleFullBody(const String& command, const String& phase) {
+  if (phase == "stop") {
+    Leg::stop();
+    return;
+  }
+  if (phase == "start" || phase == "hold") {
+    if (command == "up")        { Leg::walkForward(0.7f); }
+    else if (command == "down") { Leg::walkBackward(0.7f); }
+    else if (command == "left") { Leg::turnLeft(0.7f); }
+    else if (command == "right"){ Leg::turnRight(0.7f); }
+  }
+}
+
+// ---------------- Legacy command support ----------------
+static void handleLegacyJson(const JsonDocument& doc) {
+  const String cmd = doc["cmd"] | "";
+
+  if (cmd == "rex_walk_forward") { Leg::walkForward(0.7f); return; }
+  if (cmd == "rex_walk_backward"){ Leg::walkBackward(0.7f); return; }
+  if (cmd == "rex_turn_left")    { Leg::turnLeft(0.6f);    return; }
+  if (cmd == "rex_turn_right")   { Leg::turnRight(0.6f);   return; }
+  if (cmd == "rex_stop")         { Leg::stop();            return; }
+
+  if (cmd == "rex_spine_up")     { g_spineLevel  = clamp01(g_spineLevel + NUDGE_FINE);  Spine::set(g_spineLevel);  return; }
+  if (cmd == "rex_spine_down")   { g_spineLevel  = clamp01(g_spineLevel - NUDGE_FINE);  Spine::set(g_spineLevel);  return; }
+  if (cmd == "rex_tail_wag")     { /* optional legacy tail wag */ return; }
+
+  if (cmd == "rex_gait") {
+    const float speed  = doc["speed"]  | 0.7f;
+    const float stride = doc["stride"] | 0.6f;
+    const float lift   = doc["lift"]   | 0.4f;
+    const String mode  = doc["mode"]   | String("walk");
+    Leg::setGait(speed, stride, lift, mode);
     return;
   }
 
-  // -------- Plain string fallback --------
-  if (s == "rex_roar")         { Head::roar(); return; }
-  if (s == "rex_tail_wag")     { Tail::wag(); return; }
-  if (s == "rex_spine_up")     { Spine::up(); return; }
-  if (s == "rex_spine_down")   { Spine::down(); return; }
+  if (cmd == "rex_speed_adjust") { Leg::adjustSpeed(doc["delta"] | 0.1f); return; }
+  if (cmd == "rex_stride_set")   { Leg::setStride  (doc["value"] | 0.6f); return; }
+  if (cmd == "rex_posture")      { Leg::setPosture (doc["level"] | 0.5f); return; }
+
+  // IMU toggles (optional)
+  if (cmd == "rex_stab_enable")  { IMU::enable(true);  return; }
+  if (cmd == "rex_stab_disable") { IMU::enable(false); return; }
+
+  if (cmd == "rex_stab_gains") {
+    ImuGains g = IMU::getGains();
+    if (doc.containsKey("k_roll"))   g.k_roll  = doc["k_roll"].as<float>();
+    if (doc.containsKey("b_roll"))   g.b_roll  = doc["b_roll"].as<float>();
+    if (doc.containsKey("k_pitch"))  g.k_pitch = doc["k_pitch"].as<float>();
+    if (doc.containsKey("b_pitch"))  g.b_pitch = doc["b_pitch"].as<float>();
+    IMU::setGains(g);
+    return;
+  }
+
+  if (cmd == "rex_stab_cal") {
+    IMU::setOffsets(doc["roll0"] | 0.0f, doc["pitch0"] | 0.0f, doc["yaw0"] | 0.0f);
+    return;
+  }
+
+  // Unknown legacy command
+  Serial.print(F("Unknown legacy JSON cmd: "));
+  Serial.println(cmd);
+}
+
+static void handleLegacyRaw(const String& s) {
   if (s == "rex_walk_forward") { Leg::walkForward(0.7f); return; }
+  if (s == "rex_walk_backward"){ Leg::walkBackward(0.7f); return; }
   if (s == "rex_turn_left")    { Leg::turnLeft(0.6f); return; }
   if (s == "rex_turn_right")   { Leg::turnRight(0.6f); return; }
+  if (s == "rex_stop")         { Leg::stop(); return; }
 
-  #ifdef SERIAL_DEBUG
-  Serial.print("Unknown raw cmd: "); Serial.println(s);
-  #endif
+  if (s == "rex_spine_up")     { g_spineLevel = clamp01(g_spineLevel + NUDGE_FINE); Spine::set(g_spineLevel); return; }
+  if (s == "rex_spine_down")   { g_spineLevel = clamp01(g_spineLevel - NUDGE_FINE); Spine::set(g_spineLevel); return; }
+
+  Serial.print(F("Unknown raw cmd: "));
+  Serial.println(s);
+}
+
+// ---------------- Public API ----------------
+void handleLine(const String& line) {
+  // Try new JSON contract first
+  StaticJsonDocument<384> doc;
+  DeserializationError err = deserializeJson(doc, line);
+
+  if (!err) {
+    const String target  = doc["target"]  | "";
+    const String part    = doc["part"]    | "";
+    const String command = doc["command"] | "";
+    const String phase   = doc["phase"]   | "";
+
+    if (target.length() && command.length() && phase.length()) {
+      // Route primarily by part (more specific than target)
+      if      (part == "legs")   handleLegs(command, phase);
+      else if (part == "pelvis") handlePelvis(command, phase);
+      else if (part == "spine")  handleSpine(command, phase);
+      else if (part == "head")   handleHead(command, phase);
+      else if (part == "neck")   handleNeck(command, phase);
+      else if (part == "tail")   handleTail(command, phase);
+      else {
+        // Fallback: fullBody panel or generic directions
+        if (target == "fullBody") handleFullBody(command, phase);
+      }
+
+      // Optional echo for debugging over Serial:
+      Serial.print(F("RX OK: "));
+      serializeJson(doc, Serial);
+      Serial.println();
+      return;
+    }
+
+    // If it wasn't the new schema, try legacy JSON ("cmd": "rex_*")
+    if (doc.containsKey("cmd")) {
+      handleLegacyJson(doc);
+      return;
+    }
+
+    // Unknown JSON shape
+    Serial.print(F("Unknown JSON: "));
+    serializeJson(doc, Serial);
+    Serial.println();
+    return;
+  }
+
+  // Not JSON → legacy raw string path
+  String s = line;
+  s.trim();
+  if (s.length()) {
+    handleLegacyRaw(s);
+  }
+}
+
+void tick() {
+  // no-op for now (placeholder for smoothing if needed)
 }
 
 } // namespace CommandRouter

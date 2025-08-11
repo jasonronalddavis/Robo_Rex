@@ -2,11 +2,6 @@
 #include <Wire.h>
 #include <MadgwickAHRS.h>
 
-// ---------- Select sensor ----------
-#if !defined(IMU_SENSOR_ICM20948) && !defined(IMU_SENSOR_MPU6050)
-#define IMU_SENSOR_MPU6050
-#endif
-
 #ifdef IMU_SENSOR_ICM20948
   #include <ICM_20948.h>       // SparkFun
   static ICM_20948_I2C icm;
@@ -35,19 +30,21 @@ static inline float wrap180(float d) {
   return d;
 }
 
-static void imuTask(void*) {
-  const uint32_t target_hz = 200;
+static void imuTask(void* param) {
+  // Desired loop rate passed as parameter (default 200 Hz)
+  uint32_t target_hz = (uint32_t)(uintptr_t)param;
+  if (target_hz == 0) target_hz = 200;
   const TickType_t delayTicks = pdMS_TO_TICKS(1000 / target_hz);
   uint32_t lastUs = micros();
 
   for (;;) {
     // Read raw
-    float ax, ay, az, gx, gy, gz, mx=0, my=0, mz=0;
+    float ax=0, ay=0, az=0, gx=0, gy=0, gz=0, mx=0, my=0, mz=0;
 
 #ifdef IMU_SENSOR_ICM20948
-    icm.getAGMT(); // updates all internal buffers
+    if (icm.dataReady()) icm.getAGMT(); // updates internal buffers if ready
     ax = icm.accX(); ay = icm.accY(); az = icm.accZ();
-    gx = icm.gyrX()*DEG_TO_RAD; gy = icm.gyrY()*DEG_TO_RAD; gz = icm.gyrZ()*DEG_TO_RAD;
+    gx = icm.gyrX()*DEG_TO_RAD; gy = icm.gyrY()*DEG_TO_RAD; gz = icm.gyrZ()*DEG_TO_RAD; // rad/s
     // Magnetometer optional: mx = icm.magX(); my = icm.magY(); mz = icm.magZ();
 #endif
 
@@ -58,7 +55,7 @@ static void imuTask(void*) {
       continue;
     }
     ax = a.acceleration.x; ay = a.acceleration.y; az = a.acceleration.z;
-    gx = g.gyro.x; gy = g.gyro.y; gz = g.gyro.z;      // rad/s
+    gx = g.gyro.x; gy = g.gyro.y; gz = g.gyro.z; // Adafruit units are rad/s
 #endif
 
     // dt
@@ -67,13 +64,13 @@ static void imuTask(void*) {
     lastUs = nowUs;
     if (dt <= 0) { vTaskDelay(delayTicks); continue; }
 
-    // Update filter (Madgwick expects units: gyros in rad/s, acc in m/s^2)
+    // Update filter (gyros rad/s, acc m/s^2)
     filter.update(gx, gy, gz, ax, ay, az, mx, my, mz);
 
-    // Euler
-    float roll  = filter.getRoll();   // deg
-    float pitch = filter.getPitch();  // deg
-    float yaw   = filter.getYaw();    // deg
+    // Euler (deg)
+    float roll  = filter.getRoll();
+    float pitch = filter.getPitch();
+    float yaw   = filter.getYaw();
 
     // Offsets / mounting correction
     roll  = wrap180(roll  - off_roll);
@@ -101,28 +98,40 @@ bool begin() {
   Wire.setClock(400000);
 
 #ifdef IMU_SENSOR_ICM20948
-  if (icm.begin(Wire, 0) != ICM_20948_Stat_Ok) return false;
-  // Basic accel/gyro ranges are fine for stabilization
+  if (icm.begin(Wire, 0) != ICM_20948_Stat_Ok) {
+    return false;
+  }
+  // Default sensor configs are fine for stabilization.
 #endif
 
 #ifdef IMU_SENSOR_MPU6050
-  if (!mpu.begin()) return false;
+  if (!mpu.begin()) {
+    return false;
+  }
   mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 #endif
 
-  filter.begin(200); // nominal update rate (Hz)
+  // Nominal update rate (we'll still compute dt per loop)
+  filter.begin(200);
+
   s_mutex = xSemaphoreCreateMutex();
   return true;
 }
 
 void startTask(uint32_t hz) {
   if (s_task) return;
+  if (hz == 0) hz = 200;
   xTaskCreatePinnedToCore(
-    imuTask, "imuTask", 4096, nullptr, 1, &s_task, 0
+    imuTask,
+    "imuTask",
+    4096,
+    (void*)(uintptr_t)hz, // pass desired Hz
+    1,
+    &s_task,
+    0
   );
-  (void)hz; // using internal 200 Hz; adjust task if you want
 }
 
 void get(ImuState& out) {
