@@ -1,9 +1,7 @@
-// src/main.cpp
 #include <Arduino.h>
 #include <Wire.h>
 #include <NimBLEDevice.h>
 
-// Servo bus + body modules (optional to connect later)
 #include "ServoBus.h"
 #include "Servo_Functions/Leg_Function.h"
 #include "Servo_Functions/Spine_Function.h"
@@ -11,92 +9,81 @@
 #include "Servo_Functions/Neck_Function.h"
 #include "Servo_Functions/Tail_Function.h"
 #include "Servo_Functions/Pelvis_Function.h"
-
-// Command router (expects: CommandRouter::handleLine(const String&))
 #include "CommandRouter.h"
 
-// ---------------- BLE UUIDs (Nordic UART-like) ----------------
+// ── BLE UUIDs (Nordic UART) ──────────────────────────────────────────
 static const char* NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-static const char* NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // notify
 static const char* NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // write
+static const char* NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // notify
 
-// ---------------- Globals ----------------
-static NimBLECharacteristic* g_txChar = nullptr;
-static String                g_lineBuf;      // accumulate until '\n'
+// ── Globals ───────────────────────────────────────────────────────────
+static NimBLECharacteristic* g_txChar = nullptr;   // notify up to web
+static String                g_lineBuf;            // accumulates until '\n'
 static ServoBus              SERVO;
 
-// ---------------- Helpers ----------------
-static inline void txNotify(const std::string& s) {
-  if (!g_txChar) return;
-  g_txChar->setValue((uint8_t*)s.data(), s.size());
-  g_txChar->notify();
-}
+// Keep maps in scope (handy for future debug)
+static Leg::Map g_legMap;
 
-static inline void txNotifyStr(const char* s) {
+// ── Helpers ───────────────────────────────────────────────────────────
+static inline void txNotify(const char* s) {
   if (!g_txChar || !s) return;
   g_txChar->setValue((uint8_t*)s, strlen(s));
   g_txChar->notify();
 }
+static inline void txNotify(const String& s) { txNotify(s.c_str()); }
 
 static void handleLineFromWeb(const String& line) {
   if (line.length() == 0) return;
 
-  // Log to USB serial for debugging
+  // Log to USB for visibility
   Serial.print(F("[WEB ▶ MCU] "));
   Serial.println(line);
 
-  // Route to your command router
+  // Optional echo back to the browser (handy in DevTools console)
+  txNotify(String("RX OK: ") + line + "\n");
+
+  // Route to your command router (supports new {target,part,command,phase}
+  // and legacy {"cmd":"rex_*"} forms you already implemented)
   CommandRouter::handleLine(line);
 }
 
-// ---------------- BLE Callbacks ----------------
+// ── BLE Callbacks ─────────────────────────────────────────────────────
 class RxCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* c) override {
     const std::string& v = c->getValue();
     if (v.empty()) return;
 
-    // Append to line buffer; process on '\n'
+    // Accumulate until newline so partial packets don't break parsing
     for (char ch : v) {
       if (ch == '\r') continue;
-      if (ch != '\n') {
-        g_lineBuf += ch;
-      } else {
-        String line = g_lineBuf;
-        g_lineBuf = "";
-        handleLineFromWeb(line);
-      }
+      if (ch != '\n') g_lineBuf += ch;
+      else { String line = g_lineBuf; g_lineBuf = ""; handleLineFromWeb(line); }
     }
-    // No trailing newline? leave in buffer until next packet
   }
 };
 
 class ServerCallbacks : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer*) override {
-    Serial.println(F("[BLE] Central connected"));
-  }
+  void onConnect(NimBLEServer*) override { Serial.println(F("[BLE] Central connected")); }
   void onDisconnect(NimBLEServer*) override {
     Serial.println(F("[BLE] Central disconnected"));
     NimBLEDevice::startAdvertising();
   }
 };
 
-// ---------------- Setup PCA9685 & body maps (optional) ----------------
+// ── Servo/I²C + module bring‑up ───────────────────────────────────────
 static void setupServosAndModules() {
-  // Bring up I2C on default board pins (DON'T force pins—prevents driver asserts)
-  Wire.begin();            // use board defaults (safe on S3 boards)
-  Wire.setClock(400000);   // fast I2C is fine for PCA9685
+  Wire.begin();          // board defaults (ESP32‑S3)
+  Wire.setClock(400000); // 400 kHz I²C for PCA9685
 
-  // PCA9685 @ 0x40, 50 Hz for hobby servos
   if (!SERVO.begin(0x40, 50.0f)) {
     Serial.println(F("! SERVO.begin failed (PCA9685)"));
   } else {
     Serial.println(F("SERVO ready (PCA9685 @ 0x40, 50Hz)"));
   }
 
-  // Example channel maps (adjust as your wiring evolves)
-  Leg::Map legMap;
-  legMap.L_hip   = 0;  legMap.L_knee  = 1;  legMap.L_ankle = 2;  legMap.L_foot = 3;  legMap.L_toe = 4;
-  legMap.R_hip   = 5;  legMap.R_knee  = 6;  legMap.R_ankle = 7;  legMap.R_foot = 8;  legMap.R_toe = 9;
+  // Channel maps (adjust to your wiring)
+  g_legMap.L_hip   = 0;  g_legMap.L_knee  = 1;  g_legMap.L_ankle = 2;  g_legMap.L_foot = 3;  g_legMap.L_toe = 4;
+  g_legMap.R_hip   = 5;  g_legMap.R_knee  = 6;  g_legMap.R_ankle = 7;  g_legMap.R_foot = 8;  g_legMap.R_toe = 9;
 
   Spine::Map  spineMap;  spineMap.spinePitch = 10;
   Head::Map   headMap;   headMap.jaw = 11;   headMap.neckPitch = 12;
@@ -104,8 +91,8 @@ static void setupServosAndModules() {
   Tail::Map   tailMap;   tailMap.wag = 14;
   Pelvis::Map pelvisMap; pelvisMap.roll = 15;
 
-  // Initialize modules (safe even if no servos are plugged in)
-  Leg::begin(&SERVO, legMap);
+  // Initialize modules (attaches channels & writes neutral)
+  Leg::begin(&SERVO, g_legMap);
   Spine::begin(&SERVO, spineMap);
   Head::begin(&SERVO, headMap);
   Neck::begin(&SERVO, neckMap);
@@ -115,23 +102,23 @@ static void setupServosAndModules() {
   Serial.println(F("Body modules initialized"));
 }
 
-// ---------------- Setup BLE (NimBLE) ----------------
+// ── BLE setup ─────────────────────────────────────────────────────────
 static void setupBLE() {
   NimBLEDevice::init("Robo_Rex_ESP32S3");
-  // Keep conservative while debugging; raise later if you like
-  NimBLEDevice::setMTU(69);
-  // Power call is optional; some SDK combos are picky. Safe to omit or use P9.
-  // NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+  NimBLEDevice::setMTU(69);  // conservative, reliable
 
   auto* server = NimBLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
 
   auto* svc = server->createService(NUS_SERVICE_UUID);
-  g_txChar  = svc->createCharacteristic(NUS_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
 
+  // TX: browser subscribes to this
+  g_txChar = svc->createCharacteristic(NUS_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
+
+  // RX: browser writes control lines here
   auto* rx = svc->createCharacteristic(
-      NUS_RX_UUID,
-      NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
+    NUS_RX_UUID,
+    NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
   );
   rx->setCallbacks(new RxCallbacks());
 
@@ -145,27 +132,21 @@ static void setupBLE() {
   Serial.println(F("[BLE] Advertising as Robo_Rex_ESP32S3 (NUS)"));
 }
 
-// ---------------- Arduino lifecycle ----------------
+// ── Arduino lifecycle ────────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
   delay(200);
   Serial.println();
-  Serial.println(F("=== Robo Rex (BLE bring-up, no IMU) ==="));
+  Serial.println(F("=== Robo Rex (BLE command test) ==="));
 
-  // 1) Servos/I2C first (stable defaults to avoid driver asserts)
   setupServosAndModules();
-
-  // 2) BLE last
   setupBLE();
 
-  // Say hello to the web app (optional)
-  txNotifyStr("MCU online\n");
+  txNotify("MCU online (ready for BLE commands)\n");
 }
 
 void loop() {
-  // Keep leg engine ticking even if idle (no-op until commanded)
+  // Keep leg engine ticking even if idle; router may switch modes
   Leg::tick();
-
-  // Keep the loop light
   delay(5);
 }
