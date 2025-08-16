@@ -13,12 +13,12 @@ static float NEUTRAL_ANKLE = 90.0f;
 static float NEUTRAL_FOOT  = 90.0f;
 static float NEUTRAL_TOE   = 90.0f;
 
-// Per-joint amplitude scales (deg per unit amplitude)
-static float HIP_STRIDE_SCALE   = 25.0f;  // swing fore/aft
-static float KNEE_STRIDE_SCALE  = 18.0f;  // extend/flex
-static float ANKLE_STRIDE_SCALE = 12.0f;
-static float FOOT_LIFT_SCALE    = 10.0f;  // lift during swing
-static float TOE_LIFT_SCALE     =  6.0f;
+// Boosted per-joint amplitude scales (deg per unit amplitude)
+static float HIP_STRIDE_SCALE   = 50.0f;
+static float KNEE_STRIDE_SCALE  = 35.0f;
+static float ANKLE_STRIDE_SCALE = 25.0f;
+static float FOOT_LIFT_SCALE    = 20.0f;
+static float TOE_LIFT_SCALE     = 12.0f;
 
 // Safety limits per joint (µs/deg). Adjust for your horns/geometry.
 static ServoLimits LIM_HIP   (500, 2500,  10.0f, 170.0f);
@@ -30,9 +30,10 @@ static ServoLimits LIM_TOE   (500, 2500,  10.0f, 170.0f);
 // ----------------- Internal gait state -----------------
 static Mode  g_mode = IDLE;
 
-static float g_speed_hz   = 0.7f;  // cycles per second
-static float g_stride_amp = 0.6f;  // 0..1 (swing amplitude)
-static float g_lift_amp   = 0.4f;  // 0..1 (foot/toe lift)
+// Assertive defaults for when a gait is active
+static float g_speed_hz   = 1.0f;  // cycles per second
+static float g_stride_amp = 1.0f;  // 0..1 (hip swing amplitude)
+static float g_lift_amp   = 0.8f;  // 0..1 (foot/toe lift)
 static float g_posture    = 0.5f;  // 0..1 overall stance (height trim)
 
 static uint32_t g_t0_ms = 0;
@@ -43,19 +44,18 @@ static inline float clampf(float v, float lo, float hi) {
   if (v > hi) return hi;
   return v;
 }
+
 static inline float lerp(float a, float b, float t) { return a + (b - a) * t; }
 
 // Convert normalized [-1..1] swing/lift signals into joint angles
 static void writeLeftLeg(float swing, float lift, float posture01) {
   if (!SB) return;
-  // swing: fore/aft (hips), lift: up during swing (knee/ankle/toe/foot)
   const float hip   = NEUTRAL_HIP   + swing * (HIP_STRIDE_SCALE   * g_stride_amp);
   const float knee  = NEUTRAL_KNEE  - lift  * (KNEE_STRIDE_SCALE  * g_lift_amp);
   const float ankle = NEUTRAL_ANKLE - lift  * (ANKLE_STRIDE_SCALE * g_lift_amp);
   const float foot  = NEUTRAL_FOOT  - lift  * (FOOT_LIFT_SCALE    * g_lift_amp);
   const float toe   = NEUTRAL_TOE   - lift  * (TOE_LIFT_SCALE     * g_lift_amp);
 
-  // Posture trim (lower/raise body by biasing joints slightly)
   const float trim = (posture01 - 0.5f) * 10.0f; // +/- ~5 deg
   SB->writeDegrees(CH.L_hip,   hip   + trim);
   SB->writeDegrees(CH.L_knee,  knee  + trim);
@@ -66,7 +66,6 @@ static void writeLeftLeg(float swing, float lift, float posture01) {
 
 static void writeRightLeg(float swing, float lift, float posture01) {
   if (!SB) return;
-  // Mirror the left; adjust signs if your mechanics require
   const float hip   = NEUTRAL_HIP   + swing * (HIP_STRIDE_SCALE   * g_stride_amp);
   const float knee  = NEUTRAL_KNEE  - lift  * (KNEE_STRIDE_SCALE  * g_lift_amp);
   const float ankle = NEUTRAL_ANKLE - lift  * (ANKLE_STRIDE_SCALE * g_lift_amp);
@@ -83,12 +82,10 @@ static void writeRightLeg(float swing, float lift, float posture01) {
 
 // Generate swing (+/-) and lift (0..1) signals from phase
 static void gaitWave(float phase01, float& swing_out, float& lift_out) {
-  // phase 0..1 → swing is sine, lift peaks during swing forward
   const float theta = phase01 * TWO_PI; // TWO_PI from Arduino.h
   const float swing = sinf(theta);      // -1..1
-  // Simple duty: lift = max(0, sin shifted up), tweak shape with pow
   float lift = 0.5f * (sinf(theta - PI/2) + 1.0f); // 0..1, peaks mid-swing
-  lift = powf(lift, 1.2f); // a bit pointier
+  lift = powf(lift, 1.2f);
 
   swing_out = clampf(swing, -1.0f, 1.0f);
   lift_out  = clampf(lift,   0.0f, 1.0f);
@@ -114,7 +111,7 @@ void begin(ServoBus* bus, const Map& map) {
   SB->attach(CH.R_foot,  LIM_FOOT);
   SB->attach(CH.R_toe,   LIM_TOE);
 
-  // Move to neutral stance
+  // Neutral stance
   SB->writeDegrees(CH.L_hip,   NEUTRAL_HIP);
   SB->writeDegrees(CH.L_knee,  NEUTRAL_KNEE);
   SB->writeDegrees(CH.L_ankle, NEUTRAL_ANKLE);
@@ -131,30 +128,13 @@ void begin(ServoBus* bus, const Map& map) {
   g_t0_ms = millis();
 }
 
-void walkForward(float speed_hz) {
-  g_mode = WALK_FWD;
-  g_speed_hz = clampf(speed_hz, 0.1f, 3.0f);
-  g_t0_ms = millis();
-}
-void walkBackward(float speed_hz) {
-  g_mode = WALK_BWD;
-  g_speed_hz = clampf(speed_hz, 0.1f, 3.0f);
-  g_t0_ms = millis();
-}
-void turnLeft(float rate_hz) {
-  g_mode = TURN_L;
-  g_speed_hz = clampf(rate_hz, 0.1f, 3.0f);
-  g_t0_ms = millis();
-}
-void turnRight(float rate_hz) {
-  g_mode = TURN_R;
-  g_speed_hz = clampf(rate_hz, 0.1f, 3.0f);
-  g_t0_ms = millis();
-}
+void walkForward(float speed_hz) { g_mode = WALK_FWD; g_speed_hz = clampf(speed_hz, 0.1f, 3.0f); g_t0_ms = millis(); }
+void walkBackward(float speed_hz){ g_mode = WALK_BWD; g_speed_hz = clampf(speed_hz, 0.1f, 3.0f); g_t0_ms = millis(); }
+void turnLeft(float rate_hz)     { g_mode = TURN_L;   g_speed_hz = clampf(rate_hz,  0.1f, 3.0f); g_t0_ms = millis(); }
+void turnRight(float rate_hz)    { g_mode = TURN_R;   g_speed_hz = clampf(rate_hz,  0.1f, 3.0f); g_t0_ms = millis(); }
 
 void stop() {
   g_mode = IDLE;
-  // return to neutral gently
   writeLeftLeg(0.0f, 0.0f, g_posture);
   writeRightLeg(0.0f, 0.0f, g_posture);
 }
@@ -162,7 +142,6 @@ void stop() {
 void emergencyStop() {
   g_mode = IDLE;
   if (!SB) return;
-  // immediate neutral with direct writes (same as stop, but call explicitly)
   writeLeftLeg(0.0f, 0.0f, 0.5f);
   writeRightLeg(0.0f, 0.0f, 0.5f);
 }
@@ -171,23 +150,23 @@ void setGait(float speed_hz, float stride_amp, float lift_amp, const String& mod
   g_speed_hz   = clampf(speed_hz,   0.05f, 4.0f);
   g_stride_amp = clampf(stride_amp, 0.0f,  1.0f);
   g_lift_amp   = clampf(lift_amp,   0.0f,  1.0f);
-
   if (mode == "run") {
-    // slightly higher frequency & lower lift for “run”
-    g_speed_hz   = clampf(g_speed_hz * 1.3f, 0.1f, 5.0f);
-    g_lift_amp   = clampf(g_lift_amp * 0.8f, 0.0f, 1.0f);
+    g_speed_hz = clampf(g_speed_hz * 1.3f, 0.1f, 5.0f);
+    g_lift_amp = clampf(g_lift_amp * 0.8f, 0.0f, 1.0f);
   }
 }
 
-void adjustSpeed(float delta_hz) { g_speed_hz = clampf(g_speed_hz + delta_hz, 0.05f, 4.0f); }
-void setStride(float value01)    { g_stride_amp = clampf(value01, 0.0f, 1.0f); }
-void setPosture(float level01)   { g_posture    = clampf(level01, 0.0f, 1.0f); }
+void adjustSpeed(float d) { g_speed_hz = clampf(g_speed_hz + d, 0.05f, 4.0f); }
+void setStride(float v)   { g_stride_amp = clampf(v, 0.0f, 1.0f); }
+void setPosture(float v)  { g_posture    = clampf(v, 0.0f, 1.0f); }
 
-// Optional: map {command, phase} contract to motions.
-// Returns true if recognized.
 bool handleAction(const String& command, const String& phase) {
-  // phase is currently ignored for continuous gaits, but could be used to
-  // ramp speeds or implement tap-to-step patterns.
+  if (phase == "stop") { stop(); return true; }
+  if (phase == "start" || phase == "hold") {
+    g_stride_amp = 1.0f;
+    g_lift_amp   = 0.8f;
+    g_speed_hz   = 1.0f;
+  }
   if (command == "move_forward")  { walkForward(g_speed_hz);  return true; }
   if (command == "move_backward") { walkBackward(g_speed_hz); return true; }
   if (command == "move_left")     { turnLeft(g_speed_hz);     return true; }
@@ -196,36 +175,37 @@ bool handleAction(const String& command, const String& phase) {
   return false;
 }
 
-// Call this regularly (e.g., each loop())
+// ----------------- Main update -----------------
 void tick() {
   if (!SB) return;
 
-  const uint32_t now = millis();
-  const float t = (now - g_t0_ms) / 1000.0f;  // seconds
-  const float cycle = t * g_speed_hz;         // cycles since start
-  float phase = cycle - floorf(cycle);        // 0..1
+  // NEW: If idle, hold neutral and do nothing else
+  if (g_mode == IDLE) {
+    writeLeftLeg(0.0f, 0.0f, g_posture);
+    writeRightLeg(0.0f, 0.0f, g_posture);
+    return;
+  }
 
-  // Default swings/lifts for left/right
+  const uint32_t now = millis();
+  const float t = (now - g_t0_ms) / 1000.0f;
+  const float cycle = t * g_speed_hz;
+  float phase = cycle - floorf(cycle);
+
   float swingL = 0, liftL = 0;
   float swingR = 0, liftR = 0;
 
-  // Phase relationship: walking has legs out of phase by 180°
   float phaseR = phase + 0.5f;
   if (phaseR >= 1.0f) phaseR -= 1.0f;
 
-  // Base gait
   gaitWave(phase,  swingL, liftL);
   gaitWave(phaseR, swingR, liftR);
 
-  // Reverse for backward
   if (g_mode == WALK_BWD) {
     swingL = -swingL;
     swingR = -swingR;
   }
 
-  // Turning tweaks: bias hip swing to steer
   if (g_mode == TURN_L) {
-    // more forward swing on right leg, less on left
     swingL *= 0.6f;
     swingR *= 1.2f;
   } else if (g_mode == TURN_R) {
