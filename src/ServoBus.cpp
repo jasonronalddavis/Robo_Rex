@@ -1,55 +1,50 @@
-#include <Arduino.h>
 #include "ServoBus.h"
-#include <Wire.h>
 
 bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
-  // If Wire is already begun elsewhere, this is harmless
-  Wire.begin();
-  Wire.setClock(400000); // Fast I2C works well with PCA9685
-
-  // Create/assign driver with requested address
   _pwm = Adafruit_PWMServoDriver(i2c_addr);
-
-  // Init PCA9685
   _pwm.begin();
   setFrequency(freq_hz);
-
-  // Defaults
-  for (uint8_t ch = 0; ch < 16; ++ch) {
-    _attached[ch] = false;
-    _limits[ch]   = ServoLimits(); // 500..2500 µs, 0..180 deg by default
-  }
-
-  // Let the oscillator settle
+  // defaults...
   delay(10);
   return true;
 }
 
 void ServoBus::setFrequency(float freq_hz) {
-  // Datasheet guardrails for PCA9685 (typically 24–1526 Hz; we clamp to a safe hobby-servo window)
+  // PCA9685 datasheet usable range is wider, but we clamp to a safe window
   if (freq_hz < 40.0f)   freq_hz = 40.0f;
   if (freq_hz > 1000.0f) freq_hz = 1000.0f;
   _freq = freq_hz;
   _pwm.setPWMFreq(_freq);
-  // Adafruit note: small delay after changing frequency
-  delay(5);
+  delay(3);
+#ifdef SERVO_BUS_DEBUG
+  Serial.print(F("[ServoBus] setPWMFreq=")); Serial.println(_freq);
+#endif
 }
 
 void ServoBus::attach(uint8_t channel, const ServoLimits& limits) {
   if (channel >= 16) return;
   _limits[channel]   = limits;
   _attached[channel] = true;
+#ifdef SERVO_BUS_DEBUG
+  Serial.print(F("[ServoBus] attach ch=")); Serial.println(channel);
+#endif
 }
 
 void ServoBus::detach(uint8_t channel) {
   if (channel >= 16) return;
   _attached[channel] = false;
   _pwm.setPWM(channel, 0, 0); // off
+#ifdef SERVO_BUS_DEBUG
+  Serial.print(F("[ServoBus] detach ch=")); Serial.println(channel);
+#endif
 }
 
 void ServoBus::setLimits(uint8_t channel, const ServoLimits& limits) {
   if (channel >= 16) return;
   _limits[channel] = limits;
+#ifdef SERVO_BUS_DEBUG
+  Serial.print(F("[ServoBus] setLimits ch=")); Serial.println(channel);
+#endif
 }
 
 uint16_t ServoBus::_usToTicks(uint16_t us) const {
@@ -77,7 +72,7 @@ uint16_t ServoBus::_degToUs(uint8_t ch, float deg) const {
   const float us_f = static_cast<float>(L.minPulse) +
                      t * static_cast<float>(L.maxPulse - L.minPulse);
 
-  // Clamp to a sane servo pulse window (in microseconds), not to 0..4095
+  // Clamp to a sane servo pulse window (in microseconds)
   const uint16_t us = _clampU16(static_cast<int32_t>(us_f + 0.5f), 400, 2800);
   return us;
 }
@@ -86,6 +81,11 @@ void ServoBus::writeMicroseconds(uint8_t ch, uint16_t us) {
   if (ch >= 16 || !_attached[ch]) return;
   const uint16_t ticks = _usToTicks(us);
   _pwm.setPWM(ch, 0, ticks);
+#ifdef SERVO_BUS_DEBUG
+  Serial.print(F("[ServoBus] ch=")); Serial.print(ch);
+  Serial.print(F(" us=")); Serial.print(us);
+  Serial.print(F(" ticks=")); Serial.println(ticks);
+#endif
 }
 
 void ServoBus::writeDegrees(uint8_t ch, float deg) {
@@ -93,6 +93,12 @@ void ServoBus::writeDegrees(uint8_t ch, float deg) {
   const uint16_t us    = _degToUs(ch, deg);
   const uint16_t ticks = _usToTicks(us);
   _pwm.setPWM(ch, 0, ticks);
+#ifdef SERVO_BUS_DEBUG
+  Serial.print(F("[ServoBus] ch=")); Serial.print(ch);
+  Serial.print(F(" deg=")); Serial.print(deg, 1);
+  Serial.print(F(" us="));  Serial.print(us);
+  Serial.print(F(" ticks=")); Serial.println(ticks);
+#endif
 }
 
 void ServoBus::writeNeutral(uint8_t ch) {
@@ -106,4 +112,7 @@ void ServoBus::setAllOff() {
   for (uint8_t ch = 0; ch < 16; ++ch) {
     _pwm.setPWM(ch, 0, 0);
   }
+#ifdef SERVO_BUS_DEBUG
+  Serial.println(F("[ServoBus] setAllOff"));
+#endif
 }

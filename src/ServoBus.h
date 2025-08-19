@@ -21,7 +21,11 @@ struct ServoLimits {
 // ============================== ServoBus ==============================
 class ServoBus {
 public:
-  // Initialize the PCA9685 and set the servo frequency (Hz). Returns true if OK.
+  /**
+   * Initialize the PCA9685 and set the servo frequency (Hz). Returns true if OK.
+   * NOTE: This does NOT call Wire.begin(). Call Wire.begin(SDA,SCL) in main.cpp
+   *       BEFORE calling ServoBus::begin() so your custom I²C pins are kept.
+   */
   bool begin(uint8_t i2c_addr = 0x40, float freq_hz = 50.0f);
 
   // Attach a logical "servo" to a PCA9685 channel with limits.
