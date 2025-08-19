@@ -2,15 +2,14 @@
 #include <Arduino.h>
 #include <Adafruit_PWMServoDriver.h>
 
-// ====================== Servo limits & mapping ======================
-// Per-channel motion limits + mapping (µs and degrees)
+// ---------------- Servo limits & mapping ----------------
 struct ServoLimits {
   uint16_t minPulse;   // microseconds (typical 500–700)
   uint16_t maxPulse;   // microseconds (typical 2300–2500)
   float    minDeg;     // degrees (mechanical min)
   float    maxDeg;     // degrees (mechanical max)
 
-  // C++11-friendly ctor so `ServoLimits{500,2500,0,180}` works
+  // C++11-friendly defaults so ServoLimits{500,2500,0,180} works
   constexpr ServoLimits(uint16_t minP = 500,
                         uint16_t maxP = 2500,
                         float    minD = 0.0f,
@@ -18,41 +17,28 @@ struct ServoLimits {
   : minPulse(minP), maxPulse(maxP), minDeg(minD), maxDeg(maxD) {}
 };
 
-// ============================== ServoBus ==============================
+// --------------------------- ServoBus ---------------------------
 class ServoBus {
 public:
-  /**
-   * Initialize the PCA9685 and set the servo frequency (Hz). Returns true if OK.
-   * NOTE: This does NOT call Wire.begin(). Call Wire.begin(SDA,SCL) in main.cpp
-   *       BEFORE calling ServoBus::begin() so your custom I²C pins are kept.
-   */
+  // Initialize PCA9685 at i2c_addr and set output frequency (Hz).
+  // Assumes Wire.begin(...) and Wire.setClock(...) were already called.
   bool begin(uint8_t i2c_addr = 0x40, float freq_hz = 50.0f);
 
-  // Attach a logical "servo" to a PCA9685 channel with limits.
-  void attach(uint8_t channel, const ServoLimits& limits = ServoLimits());
-
-  // Detach a channel (turns output off).
-  void detach(uint8_t channel);
-
-  // Update limits for an already-attached channel.
-  void setLimits(uint8_t channel, const ServoLimits& limits);
-
-  // Write directly in microseconds (mapped to PCA9685 ticks).
-  void writeMicroseconds(uint8_t channel, uint16_t us);
-
-  // Write in degrees (mapped through per-channel limits to microseconds).
-  void writeDegrees(uint8_t channel, float deg);
-
-  // Convenience: write the neutral (mid) angle for the channel’s limits.
-  void writeNeutral(uint8_t channel);
-
-  // Turn all channels off (no pulses).
-  void setAllOff();
-
-  // Optionally adjust frequency later (e.g., 50 Hz for analog servos).
+  // Change servo output frequency later (typ. 50–333 Hz). Clamped safely.
   void setFrequency(float freq_hz);
 
-  // Quick query helpers
+  // Attach/detach logical servo channels with limits.
+  void attach(uint8_t channel, const ServoLimits& limits = ServoLimits());
+  void detach(uint8_t channel);
+  void setLimits(uint8_t channel, const ServoLimits& limits);
+
+  // Writes
+  void writeMicroseconds(uint8_t channel, uint16_t us);
+  void writeDegrees(uint8_t channel, float deg);
+  void writeNeutral(uint8_t channel);   // midpoint (average of min/max degrees)
+  void setAllOff();                     // disable pulses on all channels
+
+  // Queries
   inline bool  isAttached(uint8_t ch) const { return (ch < 16) && _attached[ch]; }
   inline float frequency() const            { return _freq; }
 
@@ -63,11 +49,10 @@ private:
   bool        _attached[16] = { false };
   float       _freq         = 50.0f;
 
-  // Conversions
+  // Helpers
   uint16_t _usToTicks(uint16_t us) const;
   uint16_t _degToUs(uint8_t ch, float deg) const;
 
-  // Clamp helpers
   static inline uint16_t _clampU16(int32_t v, uint16_t lo, uint16_t hi) {
     if (v < (int32_t)lo) return lo;
     if (v > (int32_t)hi) return hi;
