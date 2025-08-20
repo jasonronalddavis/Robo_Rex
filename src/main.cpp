@@ -17,13 +17,17 @@
 // IMU (MPU6050 + Madgwick)
 #include "IMU.h"
 
-// ---------- Build-time I2C pin config (shared by PCA9685 + MPU6050) ----------
-#ifndef IMU_SDA_PIN
-#define IMU_SDA_PIN 8
+// ---------- Build-time I2C pin config ----------
+// Servos (PCA9685) on Wire  bus: GPIO 8/9
+// IMU (MPU6050)    on Wire1 bus: GPIO 19/20 (separate bus for stability)
+#ifndef SERVO_SDA_PIN
+#define SERVO_SDA_PIN 8
 #endif
-#ifndef IMU_SCL_PIN
-#define IMU_SCL_PIN 9
+#ifndef SERVO_SCL_PIN
+#define SERVO_SCL_PIN 9
 #endif
+
+// IMU pins defined in IMU.h (19/20 by default)
 
 // ---------- BLE UUIDs (Nordic UART compatible) ----------
 static const char* NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
@@ -70,9 +74,9 @@ class ServerCallbacks : public NimBLEServerCallbacks {
   void onDisconnect(NimBLEServer*) override { Serial.println(F("[BLE] Client disconnected")); NimBLEDevice::startAdvertising(); }
 };
 
-// ---------- I2C scanner (debug aid) ----------
-static void scanI2C() {
-  Serial.println(F("[I2C] Scanning bus..."));
+// ---------- I2C scanner for Wire bus (servos) ----------
+static void scanServoI2C() {
+  Serial.println(F("[I2C] Scanning Wire bus (servos)..."));
   byte err;
   int found = 0;
   for (uint8_t addr = 1; addr < 127; addr++) {
@@ -83,19 +87,113 @@ static void scanI2C() {
       found++;
     }
   }
-  if (!found) Serial.println(F("  No devices found."));
-  else Serial.printf("  Found %d device(s)\n", found);
+  if (!found) Serial.println(F("  No devices found on Wire bus."));
+  else Serial.printf("  Found %d device(s) on Wire bus\n", found);
   Serial.println();
+}
+
+// ---------- I2C scanner for Wire1 bus (IMU) ----------
+static void scanIMUI2C() {
+  Serial.println(F("[I2C] Scanning Wire1 bus (IMU)..."));
+  byte err;
+  int found = 0;
+  for (uint8_t addr = 1; addr < 127; addr++) {
+    Wire1.beginTransmission(addr);
+    err = Wire1.endTransmission();
+    if (err == 0) {
+      Serial.printf("  Found device at 0x%02X\n", addr);
+      found++;
+    }
+  }
+  if (!found) Serial.println(F("  No devices found on Wire1 bus."));
+  else Serial.printf("  Found %d device(s) on Wire1 bus\n", found);
+  Serial.println();
+}
+
+// ---------- Debug MPU6050 directly ----------
+static void testMPU6050Directly() {
+  Serial.println(F("\n[DEBUG] Testing MPU6050 directly..."));
+  
+  // Test basic I2C communication
+  Wire1.beginTransmission(0x68);
+  byte error = Wire1.endTransmission();
+  Serial.printf("[DEBUG] I2C test result: %d (0=success)\n", error);
+  
+  // Try to read WHO_AM_I register (0x75)
+  Wire1.beginTransmission(0x68);
+  Wire1.write(0x75);  // WHO_AM_I register
+  error = Wire1.endTransmission();
+  
+  if (error == 0) {
+    Wire1.requestFrom(0x68, 1);
+    if (Wire1.available()) {
+      byte whoami = Wire1.read();
+      Serial.printf("[DEBUG] WHO_AM_I: 0x%02X (expected: 0x68)\n", whoami);
+    } else {
+      Serial.println(F("[DEBUG] No data available from WHO_AM_I"));
+    }
+  } else {
+    Serial.printf("[DEBUG] WHO_AM_I read failed: %d\n", error);
+  }
+  
+  // Try different MPU6050 addresses
+  Serial.println(F("[DEBUG] Trying different addresses..."));
+  for (uint8_t addr = 0x68; addr <= 0x69; addr++) {
+    Wire1.beginTransmission(addr);
+    error = Wire1.endTransmission();
+    Serial.printf("[DEBUG] Address 0x%02X: %s\n", addr, error == 0 ? "ACK" : "NACK");
+  }
+  
+  // Try to read Power Management register (0x6B)
+  Serial.println(F("[DEBUG] Reading Power Management register..."));
+  Wire1.beginTransmission(0x68);
+  Wire1.write(0x6B);  // PWR_MGMT_1 register
+  error = Wire1.endTransmission();
+  
+  if (error == 0) {
+    Wire1.requestFrom(0x68, 1);
+    if (Wire1.available()) {
+      byte pwr_mgmt = Wire1.read();
+      Serial.printf("[DEBUG] PWR_MGMT_1: 0x%02X (0x40=sleep, 0x00=awake)\n", pwr_mgmt);
+      
+      // If in sleep mode, try to wake it up
+      if (pwr_mgmt & 0x40) {
+        Serial.println(F("[DEBUG] Device is in sleep mode, attempting wake-up..."));
+        Wire1.beginTransmission(0x68);
+        Wire1.write(0x6B);  // PWR_MGMT_1 register
+        Wire1.write(0x00);  // Wake up device
+        error = Wire1.endTransmission();
+        Serial.printf("[DEBUG] Wake-up result: %d\n", error);
+        delay(100);
+        
+        // Read again to confirm
+        Wire1.beginTransmission(0x68);
+        Wire1.write(0x6B);
+        Wire1.endTransmission();
+        Wire1.requestFrom(0x68, 1);
+        if (Wire1.available()) {
+          pwr_mgmt = Wire1.read();
+          Serial.printf("[DEBUG] PWR_MGMT_1 after wake: 0x%02X\n", pwr_mgmt);
+        }
+      }
+    } else {
+      Serial.println(F("[DEBUG] No data available from PWR_MGMT_1"));
+    }
+  } else {
+    Serial.printf("[DEBUG] PWR_MGMT_1 read failed: %d\n", error);
+  }
+  
+  Serial.println(F("[DEBUG] MPU6050 direct test complete\n"));
 }
 
 // ---------- Servo + module bring-up ----------
 static void setupServosAndModules() {
-  // PCA9685 @0x40, 50Hz
+  // PCA9685 @0x40, 50Hz on Wire bus
   if (!SERVO.begin(0x40, 50.0f)) {
     Serial.println(F("[ServoBus] Init FAILED (PCA9685)"));
     return;
   } else {
-    Serial.println(F("[ServoBus] Ready (PCA9685 @0x40, 50Hz)"));
+    Serial.println(F("[ServoBus] Ready (PCA9685 @0x40, 50Hz on Wire)"));
   }
 
   // Channel maps — adjust to your wiring
@@ -154,31 +252,34 @@ void setup() {
   Serial.begin(115200);
   delay(400);
   Serial.println();
-  Serial.println(F("=== Robo Rex (Freenove S3 | I2C on GPIO 8/9) ==="));
+  Serial.println(F("=== Robo Rex (Freenove S3 | Dual I2C: Wire=Servos, Wire1=IMU) ==="));
 
-  // 1) I²C initialization first - use slower clock speed to avoid timing issues
-  Serial.println(F("[I2C] Initializing Wire on GPIO 8/9..."));
-  Wire.begin(IMU_SDA_PIN, IMU_SCL_PIN);
-  Wire.setClock(100000);  // Changed from 400000 to 100000 Hz for stability
-  delay(100);  // Give I2C time to settle
-  
-  Serial.println(F("[I2C] Wire initialized, scanning for devices..."));
-  scanI2C();   // Should find 0x40 (PCA9685) and 0x68 (MPU6050) if connected
+  // 1) Initialize Wire bus for servos (GPIO 8/9) - slower, stable
+  Serial.println(F("[I2C] Initializing Wire for servos..."));
+  Wire.begin(SERVO_SDA_PIN, SERVO_SCL_PIN);
+  Wire.setClock(100000);  // 100kHz - stable for servos
+  delay(50);
+  scanServoI2C();  // Should find 0x40 (PCA9685)
 
-  // 2) Initialize IMU BEFORE servos to prevent I2C driver conflicts
-  Serial.println(F("[IMU] Initializing MPU6050..."));
+  // 2) Initialize IMU on separate Wire1 bus (GPIO 19/20) - faster, isolated
+  //    Note: IMU::begin() handles Wire1 initialization internally
+  Serial.println(F("[IMU] Initializing MPU6050 on dedicated Wire1 bus..."));
   if (IMU::begin()) {
-    Serial.println(F("[IMU] MPU6050 initialized successfully"));
+    Serial.println(F("[IMU] MPU6050 initialized successfully on Wire1"));
+    scanIMUI2C();  // Should find 0x68 (MPU6050)
+    
     // Start the IMU background task
     IMU::startTask();
     Serial.println(F("[IMU] Background task started"));
   } else {
-    Serial.println(F("[IMU] ERROR: MPU6050 initialization failed!"));
+    Serial.println(F("[IMU] ERROR: MPU6050 initialization failed on Wire1!"));
+    testMPU6050Directly();  // Debug the MPU6050 directly
+    scanIMUI2C();  // Scan anyway to see what's on the bus
     // Continue anyway - servos might still work
   }
 
-  // 3) Initialize servos after IMU is stable
-  Serial.println(F("[Servos] Initializing PCA9685 and servo modules..."));
+  // 3) Initialize servos on Wire bus (after IMU is stable on Wire1)
+  Serial.println(F("[Servos] Initializing PCA9685 and servo modules on Wire..."));
   setupServosAndModules();
 
   // 4) BLE last
@@ -186,11 +287,21 @@ void setup() {
   setupBLE();
 
   Serial.println(F("[Setup] All systems initialized"));
-  txNotify("MCU online - All systems ready\n");
+  Serial.println(F("  Wire  (GPIO 8/9):  PCA9685 servos"));
+  Serial.println(F("  Wire1 (GPIO 19/20): MPU6050 IMU"));
+  
+  txNotify("MCU online - Dual I2C buses ready\n");
 }
 
 void loop() {
-  // IMU runs in its own task after IMU::begin() and will print by itself if IMU_DEBUG
+  // Print IMU status every 5 seconds for debugging
+  static uint32_t lastStatus = 0;
+  if (millis() - lastStatus > 5000) {
+    IMU::printStatus();
+    lastStatus = millis();
+  }
+
+  // IMU runs in its own task, leg animations run here
   Leg::tick();    // no motion unless commanded via BLE
   delay(10);
 }

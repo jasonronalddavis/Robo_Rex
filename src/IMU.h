@@ -2,10 +2,8 @@
 #include <Arduino.h>
 
 // --------------------------------------------------------------------
-// I2C pin defaults for ESP32‑S3 (safe, conflict‑free):
-//   SDA -> GPIO 19
-//   SCL -> GPIO 20
-// You can still override at build time with -DIMU_SDA_PIN / -DIMU_SCL_PIN
+// I2C pin configuration for ESP32‑S3 - IMU gets its own dedicated bus
+// IMU uses Wire1 on GPIO 19/20 (separate from PCA9685 servos)
 // --------------------------------------------------------------------
 #ifndef IMU_SDA_PIN
 #define IMU_SDA_PIN 19
@@ -38,7 +36,7 @@ struct ImuGains {
 };
 
 namespace IMU {
-  // Init sensor + filter. Returns true if the sensor is found.
+  // Init sensor + filter on dedicated Wire1 bus. Returns true if sensor found.
   bool begin();
 
   // Start background task to continuously read + filter.
@@ -67,6 +65,12 @@ namespace IMU {
   void enable(bool on);
   bool isEnabled();
 
-  // Test basic I2C communication with MPU6050
+  // Test basic I2C communication with MPU6050 on Wire1
   bool testConnection();
+  
+  // Wake up MPU6050 from sleep mode (if needed)
+  bool wakeUpDevice();
+  
+  // Try initialization with both possible addresses
+  bool beginWithAddressDetection();
 }
