@@ -84,6 +84,7 @@ static void scanI2C() {
     }
   }
   if (!found) Serial.println(F("  No devices found."));
+  else Serial.printf("  Found %d device(s)\n", found);
   Serial.println();
 }
 
@@ -92,6 +93,7 @@ static void setupServosAndModules() {
   // PCA9685 @0x40, 50Hz
   if (!SERVO.begin(0x40, 50.0f)) {
     Serial.println(F("[ServoBus] Init FAILED (PCA9685)"));
+    return;
   } else {
     Serial.println(F("[ServoBus] Ready (PCA9685 @0x40, 50Hz)"));
   }
@@ -154,21 +156,37 @@ void setup() {
   Serial.println();
   Serial.println(F("=== Robo Rex (Freenove S3 | I2C on GPIO 8/9) ==="));
 
-  // 1) I²C on pins 8/9 shared by PCA9685 + MPU6050
+  // 1) I²C initialization first - use slower clock speed to avoid timing issues
+  Serial.println(F("[I2C] Initializing Wire on GPIO 8/9..."));
   Wire.begin(IMU_SDA_PIN, IMU_SCL_PIN);
-  Wire.setClock(400000);
-  scanI2C();   // Expect 0x40 (PCA9685) and 0x68 (MPU6050)
+  Wire.setClock(100000);  // Changed from 400000 to 100000 Hz for stability
+  delay(100);  // Give I2C time to settle
+  
+  Serial.println(F("[I2C] Wire initialized, scanning for devices..."));
+  scanI2C();   // Should find 0x40 (PCA9685) and 0x68 (MPU6050) if connected
 
-  // 2) Servos
+  // 2) Initialize IMU BEFORE servos to prevent I2C driver conflicts
+  Serial.println(F("[IMU] Initializing MPU6050..."));
+  if (IMU::begin()) {
+    Serial.println(F("[IMU] MPU6050 initialized successfully"));
+    // Start the IMU background task
+    IMU::startTask();
+    Serial.println(F("[IMU] Background task started"));
+  } else {
+    Serial.println(F("[IMU] ERROR: MPU6050 initialization failed!"));
+    // Continue anyway - servos might still work
+  }
+
+  // 3) Initialize servos after IMU is stable
+  Serial.println(F("[Servos] Initializing PCA9685 and servo modules..."));
   setupServosAndModules();
 
-  // 3) IMU (starts a background task; prints if IMU_DEBUG defined)
-  IMU::begin();
-
-  // 4) BLE
+  // 4) BLE last
+  Serial.println(F("[BLE] Initializing Bluetooth..."));
   setupBLE();
 
-  txNotify("MCU online\n");
+  Serial.println(F("[Setup] All systems initialized"));
+  txNotify("MCU online - All systems ready\n");
 }
 
 void loop() {

@@ -25,6 +25,8 @@ struct ImuState {
   float yaw_deg   = 0.0f;  // heading estimate (mag disabled -> relative)
   uint32_t sample_us = 0;  // micros() capture time
   bool healthy = false;
+  uint32_t error_count = 0;  // Track read failures
+  uint32_t success_count = 0;  // Track successful reads
 };
 
 // Map measured angles -> normalized servo corrections (if you use it)
@@ -42,8 +44,17 @@ namespace IMU {
   // Start background task to continuously read + filter.
   void startTask(uint32_t hz = 200);
 
+  // Stop background task
+  void stopTask();
+
   // Copy latest filtered state (thread‑safe).
   void get(ImuState& out);
+
+  // Check if IMU is responding
+  bool isHealthy();
+
+  // Get basic sensor info for debugging
+  void printStatus();
 
   // Optional trim offsets (deg) to zero the reference attitude.
   void setOffsets(float roll0_deg, float pitch0_deg, float yaw0_deg);
@@ -55,4 +66,7 @@ namespace IMU {
   // Enable/disable publishing (task still runs; you can gate usage).
   void enable(bool on);
   bool isEnabled();
+
+  // Test basic I2C communication with MPU6050
+  bool testConnection();
 }
