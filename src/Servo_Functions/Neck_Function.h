@@ -4,25 +4,41 @@
 
 namespace Neck {
 
+// ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t yaw   = 13; // left/right
-  uint8_t pitch = 12; // up/down (if you prefer to keep pitch in Head, leave map unused)
+  uint8_t yaw = 0;      // PCA9685 channel 0 - left/right
 };
 
-// Init + attach with safe limits; moves to neutral.
+// ========== Initialization ==========
+// Initialize with ServoBus (PCA9685 control)
 void begin(ServoBus* bus, const Map& map);
 
-// ---- Existing API (kept for compatibility) ----
-// amt01 is clamped to [0..1]
+// ========== Primary Control Functions ==========
+// Look left by specified amount (0.0 = neutral, 1.0 = full left)
 void lookLeft(float amt01);
-void lookRight(float amt01);
-void nod(float amt01); // positive -> nod “yes” (pitch up from neutral)
 
-// ---- Optional helpers (nice with your new UI) ----
-void setYaw01(float a01);        // absolute yaw  [0..1] within limits
-void setPitch01(float a01);      // absolute pitch[0..1] within limits
-void nudgeYawDeg(float delta);   // relative yaw adjust (deg)
-void nudgePitchDeg(float delta); // relative pitch adjust (deg)
-void center();                   // neutral yaw/pitch
+// Look right by specified amount (0.0 = neutral, 1.0 = full right)
+void lookRight(float amt01);
+
+// Nod head up by specified amount (0.0 = neutral, 1.0 = full up)
+void nod(float amt01);
+
+// ========== Direct Position Control ==========
+// Set yaw position directly (0.0 = full left, 1.0 = full right)
+void setYaw01(float a01);
+
+// Set pitch position directly (0.0 = full down, 1.0 = full up)
+void setPitch01(float a01);
+
+// ========== Relative Movement ==========
+// Nudge yaw by relative angle in degrees (positive = right, negative = left)
+void nudgeYawDeg(float deltaDegrees);
+
+// Nudge pitch by relative angle in degrees (positive = up, negative = down)
+void nudgePitchDeg(float deltaDegrees);
+
+// ========== Utility Functions ==========
+// Move neck to neutral/center position
+void center();
 
 } // namespace Neck

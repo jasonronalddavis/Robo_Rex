@@ -1,239 +1,244 @@
-// src/main.cpp
+// src/main.cpp - 15-SERVO CONFIGURATION
+// Robo Rex - Complete T-Rex control with PCA9685
+// ESP32-S3 Freenove WROOM board
+
 #include <Arduino.h>
 #include <Wire.h>
 #include <NimBLEDevice.h>
 
+// Servo control via PCA9685
 #include "ServoBus.h"
-#include "CommandRouter.h"
-
-// Body modules
-#include "Servo_Functions/Leg_Function.h"
-#include "Servo_Functions/Spine_Function.h"
-#include "Servo_Functions/Head_Function.h"
 #include "Servo_Functions/Neck_Function.h"
-#include "Servo_Functions/Tail_Function.h"
+#include "Servo_Functions/Head_Function.h"
 #include "Servo_Functions/Pelvis_Function.h"
+#include "Servo_Functions/Spine_Function.h"
+#include "Servo_Functions/Tail_Function.h"
+#include "Servo_Functions/Leg_Function.h"
 
-// IMU (MPU6050 + Madgwick)
-#include "IMU.h"
+// ========== I2C Pin Configuration ==========
+#define I2C_SDA 8   // GPIO 8 for SDA
+#define I2C_SCL 9   // GPIO 9 for SCL
 
-// ---------- Build-time I2C pin config ----------
-// Servos (PCA9685) on Wire  bus: GPIO 8/9
-// IMU (MPU6050)    on Wire1 bus: GPIO 19/20 (separate bus for stability)
-#ifndef SERVO_SDA_PIN
-#define SERVO_SDA_PIN 8
-#endif
-#ifndef SERVO_SCL_PIN
-#define SERVO_SCL_PIN 9
-#endif
+// ========== PCA9685 Configuration ==========
+#define PCA9685_ADDR 0x40    // Default I2C address
+#define PCA9685_FREQ 50.0f   // 50 Hz for servos
 
-// IMU pins defined in IMU.h (19/20 by default)
-
-// ---------- BLE UUIDs (Nordic UART compatible) ----------
+// ========== BLE UUIDs (Nordic UART Service) ==========
 static const char* NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-static const char* NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // notify
-static const char* NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // write
+static const char* NUS_TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+static const char* NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
 
-// ---------- Globals ----------
+// ========== Global Variables ==========
 static NimBLECharacteristic* g_txChar = nullptr;
-static String                g_lineBuf;
-static ServoBus              SERVO;
+static String g_lineBuf;
+static ServoBus servoBus;  // PCA9685 servo controller
 
-// ---------- Helpers ----------
+// ========== Helper Functions ==========
 static inline void txNotify(const char* s) {
   if (!g_txChar || !s) return;
   g_txChar->setValue((uint8_t*)s, strlen(s));
   g_txChar->notify();
 }
 
-static void handleLineFromWeb(const String& line) {
+// ========== Command Parser ==========
+static void handleCommand(const String& line) {
   if (!line.length()) return;
-  Serial.print(F("[Router] RX: "));
+  
+  Serial.print(F("[CMD] RX: "));
   Serial.println(line);
-  // Your router signature in this repo:
-  CommandRouter::handleLine(line);
+  
+  // ===== Neck Commands =====
+  if (line == "LOOK_LEFT") {
+    Neck::lookLeft(1.0);
+    txNotify("Looking left\n");
+  }
+  else if (line == "LOOK_RIGHT") {
+    Neck::lookRight(1.0);
+    txNotify("Looking right\n");
+  }
+  else if (line == "LOOK_CENTER") {
+    Neck::center();
+    txNotify("Looking center\n");
+  }
+  
+  // ===== Head/Jaw Commands =====
+  else if (line == "JAW_OPEN") {
+    Head::mouthOpen();
+    txNotify("Jaw opened\n");
+  }
+  else if (line == "JAW_CLOSE") {
+    Head::mouthClose();
+    txNotify("Jaw closed\n");
+  }
+  else if (line == "ROAR") {
+    Head::roar();
+    txNotify("ROAR!\n");
+  }
+  else if (line == "SNAP") {
+    Head::snap();
+    txNotify("Snap!\n");
+  }
+  else if (line == "HEAD_UP") {
+    Head::lookUp(1.0);
+    txNotify("Head up\n");
+  }
+  else if (line == "HEAD_DOWN") {
+    Head::lookDown(1.0);
+    txNotify("Head down\n");
+  }
+  
+  // ===== Pelvis Commands =====
+  else if (line == "PELVIS_LEFT") {
+    Pelvis::setRoll01(0.0);
+    txNotify("Pelvis left\n");
+  }
+  else if (line == "PELVIS_RIGHT") {
+    Pelvis::setRoll01(1.0);
+    txNotify("Pelvis right\n");
+  }
+  else if (line == "PELVIS_CENTER") {
+    Pelvis::center();
+    txNotify("Pelvis centered\n");
+  }
+  
+  // ===== Spine Commands =====
+  else if (line == "SPINE_LEFT") {
+    Spine::left();
+    txNotify("Spine twisted left\n");
+  }
+  else if (line == "SPINE_RIGHT") {
+    Spine::right();
+    txNotify("Spine twisted right\n");
+  }
+  else if (line == "SPINE_CENTER") {
+    Spine::center();
+    txNotify("Spine centered\n");
+  }
+  
+  // ===== Tail Commands =====
+  else if (line == "TAIL_WAG") {
+    Tail::wag();
+    txNotify("Tail wagging!\n");
+  }
+  else if (line == "TAIL_CENTER") {
+    Tail::center();
+    txNotify("Tail centered\n");
+  }
+  
+  // ===== Leg/Walking Commands =====
+  else if (line == "WALK_FORWARD") {
+    Leg::walkForward(1.0);
+    txNotify("Walking forward\n");
+  }
+  else if (line == "WALK_BACKWARD") {
+    Leg::walkBackward(1.0);
+    txNotify("Walking backward\n");
+  }
+  else if (line == "TURN_LEFT") {
+    Leg::turnLeft(0.8);
+    txNotify("Turning left\n");
+  }
+  else if (line == "TURN_RIGHT") {
+    Leg::turnRight(0.8);
+    txNotify("Turning right\n");
+  }
+  else if (line == "STOP") {
+    Leg::stop();
+    txNotify("Stopped\n");
+  }
+  
+  // ===== System Commands =====
+  else if (line == "CENTER_ALL") {
+    Neck::center();
+    Head::center();
+    Pelvis::center();
+    Spine::center();
+    Tail::center();
+    Leg::stop();
+    txNotify("All centered\n");
+  }
+  else if (line == "ALL_OFF") {
+    servoBus.setAllOff();
+    txNotify("All off\n");
+  }
+  else if (line == "STATUS") {
+    Serial.println(F("[CMD] System Status:"));
+    Serial.print(F("  Leg mode: "));
+    Serial.println(Leg::mode());
+    Serial.print(F("  Speed: "));
+    Serial.print(Leg::speedHz());
+    Serial.println(F(" Hz"));
+    txNotify("Status OK\n");
+  }
+  else if (line == "HELP") {
+    Serial.println(F("\n[CMD] Available Commands:"));
+    Serial.println(F("  Neck:   LOOK_LEFT, LOOK_RIGHT, LOOK_CENTER"));
+    Serial.println(F("  Head:   JAW_OPEN, JAW_CLOSE, ROAR, SNAP"));
+    Serial.println(F("          HEAD_UP, HEAD_DOWN"));
+    Serial.println(F("  Pelvis: PELVIS_LEFT, PELVIS_RIGHT, PELVIS_CENTER"));
+    Serial.println(F("  Spine:  SPINE_LEFT, SPINE_RIGHT, SPINE_CENTER"));
+    Serial.println(F("  Tail:   TAIL_WAG, TAIL_CENTER"));
+    Serial.println(F("  Legs:   WALK_FORWARD, WALK_BACKWARD"));
+    Serial.println(F("          TURN_LEFT, TURN_RIGHT, STOP"));
+    Serial.println(F("  System: CENTER_ALL, ALL_OFF, STATUS, HELP"));
+    txNotify("Help sent to serial\n");
+  }
+  
+  // ===== Unknown Command =====
+  else {
+    Serial.print(F("[CMD] ✗ Unknown: "));
+    Serial.println(line);
+    txNotify("Unknown command\n");
+  }
 }
 
-// ---------- BLE Callbacks ----------
+// ========== BLE Callbacks ==========
 class RxCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* c) override {
     const std::string v = c->getValue();
     for (char ch : v) {
       if (ch == '\r') continue;
-      if (ch != '\n') g_lineBuf += ch;
-      else {
+      if (ch != '\n') {
+        g_lineBuf += ch;
+      } else {
         String line = g_lineBuf;
+        line.trim();
         g_lineBuf = "";
-        handleLineFromWeb(line);
-      }
-    }
-  }
-};
-class ServerCallbacks : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer*) override    { Serial.println(F("[BLE] Client connected")); }
-  void onDisconnect(NimBLEServer*) override { Serial.println(F("[BLE] Client disconnected")); NimBLEDevice::startAdvertising(); }
-};
-
-// ---------- I2C scanner for Wire bus (servos) ----------
-static void scanServoI2C() {
-  Serial.println(F("[I2C] Scanning Wire bus (servos)..."));
-  byte err;
-  int found = 0;
-  for (uint8_t addr = 1; addr < 127; addr++) {
-    Wire.beginTransmission(addr);
-    err = Wire.endTransmission();
-    if (err == 0) {
-      Serial.printf("  Found device at 0x%02X\n", addr);
-      found++;
-    }
-  }
-  if (!found) Serial.println(F("  No devices found on Wire bus."));
-  else Serial.printf("  Found %d device(s) on Wire bus\n", found);
-  Serial.println();
-}
-
-// ---------- I2C scanner for Wire1 bus (IMU) ----------
-static void scanIMUI2C() {
-  Serial.println(F("[I2C] Scanning Wire1 bus (IMU)..."));
-  byte err;
-  int found = 0;
-  for (uint8_t addr = 1; addr < 127; addr++) {
-    Wire1.beginTransmission(addr);
-    err = Wire1.endTransmission();
-    if (err == 0) {
-      Serial.printf("  Found device at 0x%02X\n", addr);
-      found++;
-    }
-  }
-  if (!found) Serial.println(F("  No devices found on Wire1 bus."));
-  else Serial.printf("  Found %d device(s) on Wire1 bus\n", found);
-  Serial.println();
-}
-
-// ---------- Debug MPU6050 directly ----------
-static void testMPU6050Directly() {
-  Serial.println(F("\n[DEBUG] Testing MPU6050 directly..."));
-  
-  // Test basic I2C communication
-  Wire1.beginTransmission(0x68);
-  byte error = Wire1.endTransmission();
-  Serial.printf("[DEBUG] I2C test result: %d (0=success)\n", error);
-  
-  // Try to read WHO_AM_I register (0x75)
-  Wire1.beginTransmission(0x68);
-  Wire1.write(0x75);  // WHO_AM_I register
-  error = Wire1.endTransmission();
-  
-  if (error == 0) {
-    Wire1.requestFrom(0x68, 1);
-    if (Wire1.available()) {
-      byte whoami = Wire1.read();
-      Serial.printf("[DEBUG] WHO_AM_I: 0x%02X (expected: 0x68)\n", whoami);
-    } else {
-      Serial.println(F("[DEBUG] No data available from WHO_AM_I"));
-    }
-  } else {
-    Serial.printf("[DEBUG] WHO_AM_I read failed: %d\n", error);
-  }
-  
-  // Try different MPU6050 addresses
-  Serial.println(F("[DEBUG] Trying different addresses..."));
-  for (uint8_t addr = 0x68; addr <= 0x69; addr++) {
-    Wire1.beginTransmission(addr);
-    error = Wire1.endTransmission();
-    Serial.printf("[DEBUG] Address 0x%02X: %s\n", addr, error == 0 ? "ACK" : "NACK");
-  }
-  
-  // Try to read Power Management register (0x6B)
-  Serial.println(F("[DEBUG] Reading Power Management register..."));
-  Wire1.beginTransmission(0x68);
-  Wire1.write(0x6B);  // PWR_MGMT_1 register
-  error = Wire1.endTransmission();
-  
-  if (error == 0) {
-    Wire1.requestFrom(0x68, 1);
-    if (Wire1.available()) {
-      byte pwr_mgmt = Wire1.read();
-      Serial.printf("[DEBUG] PWR_MGMT_1: 0x%02X (0x40=sleep, 0x00=awake)\n", pwr_mgmt);
-      
-      // If in sleep mode, try to wake it up
-      if (pwr_mgmt & 0x40) {
-        Serial.println(F("[DEBUG] Device is in sleep mode, attempting wake-up..."));
-        Wire1.beginTransmission(0x68);
-        Wire1.write(0x6B);  // PWR_MGMT_1 register
-        Wire1.write(0x00);  // Wake up device
-        error = Wire1.endTransmission();
-        Serial.printf("[DEBUG] Wake-up result: %d\n", error);
-        delay(100);
-        
-        // Read again to confirm
-        Wire1.beginTransmission(0x68);
-        Wire1.write(0x6B);
-        Wire1.endTransmission();
-        Wire1.requestFrom(0x68, 1);
-        if (Wire1.available()) {
-          pwr_mgmt = Wire1.read();
-          Serial.printf("[DEBUG] PWR_MGMT_1 after wake: 0x%02X\n", pwr_mgmt);
+        if (line.length() > 0) {
+          handleCommand(line);
         }
       }
-    } else {
-      Serial.println(F("[DEBUG] No data available from PWR_MGMT_1"));
     }
-  } else {
-    Serial.printf("[DEBUG] PWR_MGMT_1 read failed: %d\n", error);
   }
-  
-  Serial.println(F("[DEBUG] MPU6050 direct test complete\n"));
-}
+};
 
-// ---------- Servo + module bring-up ----------
-static void setupServosAndModules() {
-  // PCA9685 @0x40, 50Hz on Wire bus
-  if (!SERVO.begin(0x40, 50.0f)) {
-    Serial.println(F("[ServoBus] Init FAILED (PCA9685)"));
-    return;
-  } else {
-    Serial.println(F("[ServoBus] Ready (PCA9685 @0x40, 50Hz on Wire)"));
+class ServerCallbacks : public NimBLEServerCallbacks {
+  void onConnect(NimBLEServer*) override { 
+    Serial.println(F("[BLE] ✓ Client connected")); 
+    txNotify("Connected to Robo_Rex\n");
   }
-
-  // Channel maps — adjust to your wiring
-  Leg::Map legMap;
-  legMap.L_hip   = 0;  legMap.L_knee  = 1;  legMap.L_ankle = 2;  legMap.L_foot = 3;  legMap.L_toe = 4;
-  legMap.R_hip   = 5;  legMap.R_knee  = 6;  legMap.R_ankle = 7;  legMap.R_foot = 8;  legMap.R_toe = 9;
-
-  Spine::Map  spineMap;  spineMap.spinePitch = 10;
-  Head::Map   headMap;   headMap.jaw = 11;   headMap.neckPitch = 12;
-  Neck::Map   neckMap;   neckMap.yaw = 13;   neckMap.pitch     = 12; // adjust if separate
-  Tail::Map   tailMap;   tailMap.wag = 14;
-  Pelvis::Map pelvisMap; pelvisMap.roll = 15;
-
-  Leg::begin(&SERVO, legMap);
-  Spine::begin(&SERVO, spineMap);
-  Head::begin(&SERVO, headMap);
-  Neck::begin(&SERVO, neckMap);
-  Tail::begin(&SERVO, tailMap);
-  Pelvis::begin(&SERVO, pelvisMap);
-
-  // Center all attached channels once on boot (no sweep)
-  for (uint8_t ch = 0; ch < 16; ++ch) {
-    if (SERVO.isAttached(ch)) SERVO.writeNeutral(ch);
+  void onDisconnect(NimBLEServer*) override { 
+    Serial.println(F("[BLE] ✗ Client disconnected")); 
+    NimBLEDevice::startAdvertising(); 
   }
-  Serial.println(F("[ServoBus] All attached channels centered (90°)."));
-}
+};
 
-// ---------- BLE bring-up ----------
+// ========== BLE Initialization ==========
 static void setupBLE() {
-  NimBLEDevice::init("Robo_Rex_ESP32S3");
+  Serial.println(F("\n[BLE] Initializing Bluetooth..."));
+  
+  NimBLEDevice::init("Robo_Rex_15Servo");
   NimBLEDevice::setMTU(69);
 
   NimBLEServer* server = NimBLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
 
   NimBLEService* svc = server->createService(NUS_SERVICE_UUID);
+  
   g_txChar = svc->createCharacteristic(NUS_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
-
   NimBLECharacteristic* rx = svc->createCharacteristic(
-    NUS_RX_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
+    NUS_RX_UUID, 
+    NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
   );
   rx->setCallbacks(new RxCallbacks());
 
@@ -244,64 +249,97 @@ static void setupBLE() {
   adv->setScanResponse(true);
   adv->start();
 
-  Serial.println(F("[BLE] Advertising as Robo_Rex_ESP32S3 (NUS)"));
+  Serial.println(F("[BLE] ✓ Advertising as 'Robo_Rex_15Servo'"));
 }
 
-// ---------- Arduino lifecycle ----------
+// ========== Arduino Setup ==========
 void setup() {
   Serial.begin(115200);
-  delay(400);
-  Serial.println();
-  Serial.println(F("=== Robo Rex (Freenove S3 | Dual I2C: Wire=Servos, Wire1=IMU) ==="));
-
-  // 1) Initialize Wire bus for servos (GPIO 8/9) - slower, stable
-  Serial.println(F("[I2C] Initializing Wire for servos..."));
-  Wire.begin(SERVO_SDA_PIN, SERVO_SCL_PIN);
-  Wire.setClock(100000);  // 100kHz - stable for servos
-  delay(50);
-  scanServoI2C();  // Should find 0x40 (PCA9685)
-
-  // 2) Initialize IMU on separate Wire1 bus (GPIO 19/20) - faster, isolated
-  //    Note: IMU::begin() handles Wire1 initialization internally
-  Serial.println(F("[IMU] Initializing MPU6050 on dedicated Wire1 bus..."));
-  if (IMU::begin()) {
-    Serial.println(F("[IMU] MPU6050 initialized successfully on Wire1"));
-    scanIMUI2C();  // Should find 0x68 (MPU6050)
-    
-    // Start the IMU background task
-    IMU::startTask();
-    Serial.println(F("[IMU] Background task started"));
-  } else {
-    Serial.println(F("[IMU] ERROR: MPU6050 initialization failed on Wire1!"));
-    testMPU6050Directly();  // Debug the MPU6050 directly
-    scanIMUI2C();  // Scan anyway to see what's on the bus
-    // Continue anyway - servos might still work
-  }
-
-  // 3) Initialize servos on Wire bus (after IMU is stable on Wire1)
-  Serial.println(F("[Servos] Initializing PCA9685 and servo modules on Wire..."));
-  setupServosAndModules();
-
-  // 4) BLE last
-  Serial.println(F("[BLE] Initializing Bluetooth..."));
-  setupBLE();
-
-  Serial.println(F("[Setup] All systems initialized"));
-  Serial.println(F("  Wire  (GPIO 8/9):  PCA9685 servos"));
-  Serial.println(F("  Wire1 (GPIO 19/20): MPU6050 IMU"));
+  delay(500);
   
-  txNotify("MCU online - Dual I2C buses ready\n");
+  Serial.println();
+  Serial.println(F("╔════════════════════════════════════════════╗"));
+  Serial.println(F("║                                            ║"));
+  Serial.println(F("║    ROBO REX - 15 SERVO CONFIGURATION       ║"));
+  Serial.println(F("║         PCA9685 Control Mode               ║"));
+  Serial.println(F("║                                            ║"));
+  Serial.println(F("╚════════════════════════════════════════════╝"));
+  Serial.println();
+  
+  // Initialize I2C
+  Serial.println(F("[I2C] Initializing..."));
+  Wire.begin(I2C_SDA, I2C_SCL);
+  Wire.setClock(100000);
+  Serial.println(F("[I2C] ✓ Ready at 100kHz"));
+  
+  // Initialize PCA9685
+  Serial.println(F("\n[PCA9685] Initializing..."));
+  servoBus.begin(PCA9685_ADDR, PCA9685_FREQ);
+  Serial.println(F("[PCA9685] ✓ Ready"));
+  
+  // Initialize servo functions
+  Serial.println(F("\n[Servos] Initializing 15 servos..."));
+  
+  // Neck (1 servo - channel 0)
+  Neck::Map neckMap;
+  neckMap.yaw = 0;
+  Neck::begin(&servoBus, neckMap);
+  
+  // Head (2 servos - channels 1-2)
+  Head::Map headMap;
+  headMap.jaw = 1;
+  Head::begin(&servoBus, headMap);
+  
+  // Pelvis (1 servo - channel 3)
+  Pelvis::Map pelvisMap;
+  pelvisMap.roll = 3;
+  Pelvis::begin(&servoBus, pelvisMap);
+  
+  // Spine (1 servo - channel 4)
+  Spine::Map spineMap;
+  spineMap.spineYaw = 4;
+  Spine::begin(&servoBus, spineMap);
+  
+  // Tail (1 servo - channel 5)
+  Tail::Map tailMap;
+  tailMap.wag = 5;
+  Tail::begin(&servoBus, tailMap);
+  
+  // Legs (10 servos - channels 6-15)
+  Leg::Map legMap;
+  // Right leg
+  legMap.R_hipX  = 6;
+  legMap.R_hipY  = 7;
+  legMap.R_knee  = 8;
+  legMap.R_ankle = 9;
+  legMap.R_foot  = 10;
+  // Left leg
+  legMap.L_hipX  = 11;
+  legMap.L_hipY  = 12;
+  legMap.L_knee  = 13;
+  legMap.L_ankle = 14;
+  legMap.L_foot  = 15;
+  Leg::begin(&servoBus, legMap);
+  
+  Serial.println(F("[Servos] ✓ All 15 servos initialized"));
+  
+  // Initialize BLE
+  setupBLE();
+  
+  // Ready!
+  Serial.println(F("\n╔════════════════════════════════════════════╗"));
+  Serial.println(F("║           SYSTEM READY                     ║"));
+  Serial.println(F("╚════════════════════════════════════════════╝"));
+  Serial.println(F("\n15 servos active on channels 0-15"));
+  Serial.println(F("Type HELP for command list\n"));
+  
+  txNotify("Robo_Rex Ready!\n");
 }
 
+// ========== Arduino Loop ==========
 void loop() {
-  // Print IMU status every 5 seconds for debugging
-  static uint32_t lastStatus = 0;
-  if (millis() - lastStatus > 5000) {
-    IMU::printStatus();
-    lastStatus = millis();
-  }
-
-  // IMU runs in its own task, leg animations run here
-  Leg::tick();    // no motion unless commanded via BLE
-  delay(10);
+  // Update walking gait (MUST be called every loop!)
+  Leg::tick();
+  
+  delay(20);  // 50 Hz update rate
 }

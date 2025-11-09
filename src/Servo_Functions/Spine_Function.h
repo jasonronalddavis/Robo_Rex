@@ -4,21 +4,33 @@
 
 namespace Spine {
 
+// ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t spinePitch = 10;  // adjust in main.cpp to your wiring
+  uint8_t spineYaw = 15;  // PCA9685 channel 15 - spine left/right twist
 };
 
-// Init + attach with safe limits; moves to neutral.
+// ========== Initialization ==========
+// Initialize with ServoBus (PCA9685 control)
 void begin(ServoBus* bus, const Map& map);
 
-// ===== Existing API (kept for compatibility) =====
-void up();                         // quick preset “up” pose
-void down();                       // quick preset “down” pose
-void set(float level01);           // absolute [0..1] → mapped to safe range
+// ========== Primary Control Functions ==========
+// Quick preset positions
+void left();                      // Twist spine fully left
+void right();                     // Twist spine fully right
 
-// ===== Optional helpers (nice with new UI) =====
-void setPitch01(float level01);    // alias of set()
-void nudgePitchDeg(float delta);   // relative adjust (deg)
-void center();                     // neutral spine
+// Absolute positioning (0.0 = full left, 1.0 = full right)
+void set(float level01);
+
+// ========== Direct Position Control ==========
+// Set spine yaw position (0.0 = full left, 1.0 = full right)
+void setYaw01(float level01);
+
+// Nudge spine by relative angle in degrees
+// Positive = right, Negative = left
+void nudgeYawDeg(float deltaDegrees);
+
+// ========== Utility Functions ==========
+// Move spine to neutral/center position
+void center();
 
 } // namespace Spine

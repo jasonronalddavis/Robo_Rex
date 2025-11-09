@@ -4,22 +4,51 @@
 
 namespace Head {
 
+// ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t jaw        = 11; // adjust in main.cpp to match wiring
-  uint8_t neckPitch  = 12; // pitch (up/down)
+  uint8_t jaw = 3;           // PCA9685 channel 3 - jaw open/close
+  uint8_t neckPitch = 4;     // PCA9685 channel 4 - head up/down
 };
 
-// Initialize and attach channels with safe defaults
+// ========== Initialization ==========
+// Initialize with ServoBus (PCA9685 control)
 void begin(ServoBus* bus, const Map& map);
 
-// Existing API
+// ========== Jaw Control ==========
+// Open mouth fully
 void mouthOpen();
-void mouthClose();
-void roar();               // simple open->delay->close
 
-// New helpers (optional but convenient)
-void setPitch01(float level01);   // absolute [0..1] -> degrees within limits
-void nudgePitchDeg(float delta);  // relative change in degrees
-void center();                    // neutral jaw + neck
+// Close mouth fully
+void mouthClose();
+
+// Set jaw position (0.0 = closed, 1.0 = open)
+void setJaw01(float amt01);
+
+// ========== Head Pitch Control ==========
+// Look up by specified amount (0.0 = neutral, 1.0 = full up)
+void lookUp(float amt01);
+
+// Look down by specified amount (0.0 = neutral, 1.0 = full down)
+void lookDown(float amt01);
+
+// Set head pitch directly (0.0 = full down, 1.0 = full up)
+void setPitch01(float amt01);
+
+// ========== Animation Sequences ==========
+// Roar animation (jaw opens and closes with head movement)
+void roar();
+
+// Snap animation (quick jaw open and close)
+void snap();
+
+// ========== Utility Functions ==========
+// Move head to neutral/center position
+void center();
+
+// Nudge jaw by relative angle
+void nudgeJawDeg(float deltaDegrees);
+
+// Nudge pitch by relative angle
+void nudgePitchDeg(float deltaDegrees);
 
 } // namespace Head
