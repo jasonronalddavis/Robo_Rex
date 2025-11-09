@@ -6,8 +6,8 @@ namespace Head {
 
 // ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t jaw = 3;           // PCA9685 channel 3 - jaw open/close
-  uint8_t neckPitch = 4;     // PCA9685 channel 4 - head up/down
+  uint8_t jaw = 1;      // PCA9685 channel 1 - jaw open/close (up/down)
+  uint8_t pitch = 2;    // PCA9685 channel 2 - head nod (up/down)
 };
 
 // ========== Initialization ==========

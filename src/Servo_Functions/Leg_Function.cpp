@@ -1,6 +1,6 @@
 #include "Leg_Function.h"
 #include <math.h>
-
+//yaw
 namespace Leg {
 
 // ========== Internal State ==========

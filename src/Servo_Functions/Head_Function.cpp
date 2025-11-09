@@ -8,8 +8,8 @@ static Map CH;                    // Channel mapping
 
 // ========== Servo Limits ==========
 // Tune these values for your mechanical linkages
-static const ServoLimits LIM_JAW  (500, 2500,  30.0f, 150.0f); // closed..open
-static const ServoLimits LIM_PITCH(500, 2500,  30.0f, 150.0f); // down..up
+static const ServoLimits LIM_JAW  (500, 2500, 30.0f, 150.0f); // closed..open
+static const ServoLimits LIM_PITCH(500, 2500, 30.0f, 150.0f); // down..up
 
 // ========== Mechanical Configuration ==========
 // Neutral positions
@@ -38,17 +38,17 @@ void begin(ServoBus* bus, const Map& map) {
   }
   
   // Attach servos to PCA9685 channels with limits
-  SB->attach(CH.jaw,       LIM_JAW);
-  SB->attach(CH.neckPitch, LIM_PITCH);
+  SB->attach(CH.jaw,   LIM_JAW);
+  SB->attach(CH.pitch, LIM_PITCH);
   
   // Move to neutral position
-  SB->writeDegrees(CH.jaw,       NEUTRAL_JAW_DEG);
-  SB->writeDegrees(CH.neckPitch, NEUTRAL_PITCH_DEG);
+  SB->writeDegrees(CH.jaw,   NEUTRAL_JAW_DEG);
+  SB->writeDegrees(CH.pitch, NEUTRAL_PITCH_DEG);
   
   Serial.print(F("[Head] Initialized on PCA9685 channels "));
   Serial.print(CH.jaw);
   Serial.print(F(" (jaw) and "));
-  Serial.print(CH.neckPitch);
+  Serial.print(CH.pitch);
   Serial.println(F(" (pitch)"));
 }
 
@@ -87,7 +87,7 @@ void lookUp(float amt01) {
   const float a = clampf(amt01, 0.0f, 1.0f);
   const float deg = NEUTRAL_PITCH_DEG + a * (LIM_PITCH.maxDeg - NEUTRAL_PITCH_DEG);
   
-  SB->writeDegrees(CH.neckPitch, deg);
+  SB->writeDegrees(CH.pitch, deg);
 }
 
 // Look down by specified amount
@@ -98,7 +98,7 @@ void lookDown(float amt01) {
   const float a = clampf(amt01, 0.0f, 1.0f);
   const float deg = NEUTRAL_PITCH_DEG - a * (NEUTRAL_PITCH_DEG - LIM_PITCH.minDeg);
   
-  SB->writeDegrees(CH.neckPitch, deg);
+  SB->writeDegrees(CH.pitch, deg);
 }
 
 // Set head pitch directly
@@ -109,7 +109,7 @@ void setPitch01(float amt01) {
   const float a = clampf(amt01, 0.0f, 1.0f);
   const float deg = LIM_PITCH.minDeg + a * (LIM_PITCH.maxDeg - LIM_PITCH.minDeg);
   
-  SB->writeDegrees(CH.neckPitch, deg);
+  SB->writeDegrees(CH.pitch, deg);
 }
 
 // ========== Animation Sequences ==========
@@ -121,7 +121,7 @@ void roar() {
   Serial.println(F("[Head] ROAR!"));
   
   // Look up and open mouth
-  SB->writeDegrees(CH.neckPitch, LIM_PITCH.maxDeg);
+  SB->writeDegrees(CH.pitch, LIM_PITCH.maxDeg);
   SB->writeDegrees(CH.jaw, JAW_OPEN_DEG);
   delay(300);
   
@@ -136,7 +136,7 @@ void roar() {
   // Return to neutral
   delay(200);
   SB->writeDegrees(CH.jaw, NEUTRAL_JAW_DEG);
-  SB->writeDegrees(CH.neckPitch, NEUTRAL_PITCH_DEG);
+  SB->writeDegrees(CH.pitch, NEUTRAL_PITCH_DEG);
 }
 
 // Snap animation
@@ -159,8 +159,8 @@ void snap() {
 void center() {
   if (!SB) return;
   
-  SB->writeDegrees(CH.jaw,       NEUTRAL_JAW_DEG);
-  SB->writeDegrees(CH.neckPitch, NEUTRAL_PITCH_DEG);
+  SB->writeDegrees(CH.jaw,   NEUTRAL_JAW_DEG);
+  SB->writeDegrees(CH.pitch, NEUTRAL_PITCH_DEG);
   
   Serial.println(F("[Head] Centered"));
 }
@@ -182,7 +182,7 @@ void nudgePitchDeg(float delta) {
   static float last = NEUTRAL_PITCH_DEG;
   last = clampf(last + delta, LIM_PITCH.minDeg, LIM_PITCH.maxDeg);
   
-  SB->writeDegrees(CH.neckPitch, last);
+  SB->writeDegrees(CH.pitch, last);
 }
 
 } // namespace Head

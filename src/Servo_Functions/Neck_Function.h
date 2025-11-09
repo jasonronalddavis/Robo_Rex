@@ -6,7 +6,7 @@ namespace Neck {
 
 // ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t yaw = 0;      // PCA9685 channel 0 - left/right
+  uint8_t jaw = 0;   // PCA9685 channel 0 - neck left/right turn
 };
 
 // ========== Initialization ==========
@@ -20,22 +20,13 @@ void lookLeft(float amt01);
 // Look right by specified amount (0.0 = neutral, 1.0 = full right)
 void lookRight(float amt01);
 
-// Nod head up by specified amount (0.0 = neutral, 1.0 = full up)
-void nod(float amt01);
-
 // ========== Direct Position Control ==========
-// Set yaw position directly (0.0 = full left, 1.0 = full right)
-void setYaw01(float a01);
-
-// Set pitch position directly (0.0 = full down, 1.0 = full up)
-void setPitch01(float a01);
+// Set jaw position directly (0.0 = full left, 1.0 = full right)
+void setJaw01(float a01);
 
 // ========== Relative Movement ==========
-// Nudge yaw by relative angle in degrees (positive = right, negative = left)
-void nudgeYawDeg(float deltaDegrees);
-
-// Nudge pitch by relative angle in degrees (positive = up, negative = down)
-void nudgePitchDeg(float deltaDegrees);
+// Nudge jaw by relative angle in degrees (positive = right, negative = left)
+void nudgeJawDeg(float deltaDegrees);
 
 // ========== Utility Functions ==========
 // Move neck to neutral/center position
