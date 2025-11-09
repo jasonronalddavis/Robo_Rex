@@ -8,11 +8,11 @@ static Map       CH;              // Channel mapping
 
 // ========== Servo Limits ==========
 // Tune these values for your mechanical linkages
-static const ServoLimits LIM_JAW(500, 2500, 30.0f, 150.0f); // left..right
+static const ServoLimits LIM_YAW(500, 2500, 30.0f, 150.0f); // left..right
 
 // ========== Mechanical Configuration ==========
 // Neutral pose (head straight ahead)
-static const float NEUTRAL_JAW_DEG = 90.0f;
+static const float NEUTRAL_YAW_DEG = 90.0f;
 
 // ========== Helper Functions ==========
 static inline float clampf(float v, float lo, float hi) {
@@ -32,13 +32,13 @@ void begin(ServoBus* bus, const Map& map) {
   }
   
   // Attach servo to PCA9685 channel with limits
-  SB->attach(CH.jaw, LIM_JAW);
+  SB->attach(CH.yaw, LIM_YAW);
   
   // Move to neutral position
-  SB->writeDegrees(CH.jaw, NEUTRAL_JAW_DEG);
+  SB->writeDegrees(CH.yaw, NEUTRAL_YAW_DEG);
   
   Serial.print(F("[Neck] Initialized on PCA9685 channel "));
-  Serial.println(CH.jaw);
+  Serial.println(CH.yaw);
 }
 
 // ========== Primary Control Functions ==========
@@ -50,10 +50,10 @@ void lookLeft(float amt01) {
   
   const float a = clampf(amt01, 0.0f, 1.0f);
   
-  // Map [0..1] into the left half of the jaw range
-  const float deg = NEUTRAL_JAW_DEG - a * (NEUTRAL_JAW_DEG - LIM_JAW.minDeg);
+  // Map [0..1] into the left half of the yaw range
+  const float deg = NEUTRAL_YAW_DEG - a * (NEUTRAL_YAW_DEG - LIM_YAW.minDeg);
   
-  SB->writeDegrees(CH.jaw, deg);
+  SB->writeDegrees(CH.yaw, deg);
 }
 
 // Look right by specified amount
@@ -63,35 +63,35 @@ void lookRight(float amt01) {
   
   const float a = clampf(amt01, 0.0f, 1.0f);
   
-  // Map [0..1] into the right half of the jaw range
-  const float deg = NEUTRAL_JAW_DEG + a * (LIM_JAW.maxDeg - NEUTRAL_JAW_DEG);
+  // Map [0..1] into the right half of the yaw range
+  const float deg = NEUTRAL_YAW_DEG + a * (LIM_YAW.maxDeg - NEUTRAL_YAW_DEG);
   
-  SB->writeDegrees(CH.jaw, deg);
+  SB->writeDegrees(CH.yaw,deg);
 }
 
 // ========== Direct Position Control ==========
 
-// Set jaw position directly
+// Set YAW position directly
 // a01: 0.0 = full left, 1.0 = full right
-void setJaw01(float a01) {
+void setYaw01(float a01) {
   if (!SB) return;
   
   const float a = clampf(a01, 0.0f, 1.0f);
-  const float deg = LIM_JAW.minDeg + a * (LIM_JAW.maxDeg - LIM_JAW.minDeg);
+  const float deg = LIM_YAW.minDeg + a * (LIM_YAW.maxDeg - LIM_YAW.minDeg);
   
-  SB->writeDegrees(CH.jaw, deg);
+  SB->writeDegrees(CH.yaw, deg);
 }
 
 // ========== Relative Movement ==========
 
 // Nudge jaw by relative angle
-void nudgeJawDeg(float delta) {
+void nudgeyawDeg(float delta) {
   if (!SB) return;
   
-  static float last = NEUTRAL_JAW_DEG;
-  last = clampf(last + delta, LIM_JAW.minDeg, LIM_JAW.maxDeg);
+  static float last = NEUTRAL_YAW_DEG;
+  last = clampf(last + delta, LIM_YAW.minDeg, LIM_YAW.maxDeg);
   
-  SB->writeDegrees(CH.jaw, last);
+  SB->writeDegrees(CH.yaw, last);
 }
 
 // ========== Utility Functions ==========
@@ -100,7 +100,7 @@ void nudgeJawDeg(float delta) {
 void center() {
   if (!SB) return;
   
-  SB->writeDegrees(CH.jaw, NEUTRAL_JAW_DEG);
+  SB->writeDegrees(CH.yaw, NEUTRAL_YAW_DEG);
   
   Serial.println(F("[Neck] Centered"));
 }

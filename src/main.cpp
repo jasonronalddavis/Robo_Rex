@@ -282,7 +282,7 @@ void setup() {
   
   // Neck (1 servo - channel 0)
   Neck::Map neckMap;
-  neckMap.jaw = 0;
+  neckMap.yaw = 0;
   Neck::begin(&servoBus, neckMap);
   
   // Head (2 servos - channels 1-2)
