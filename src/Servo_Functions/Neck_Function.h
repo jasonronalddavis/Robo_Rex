@@ -21,12 +21,12 @@ void lookLeft(float amt01);
 void lookRight(float amt01);
 
 // ========== Direct Position Control ==========
-// Set jaw position directly (0.0 = full left, 1.0 = full right)
-void setJaw01(float a01);
+// Set yaw position directly (0.0 = full left, 1.0 = full right)
+void setYaw01(float a01);
 
 // ========== Relative Movement ==========
-// Nudge jaw by relative angle in degrees (positive = right, negative = left)
-void nudgeJawDeg(float deltaDegrees);
+// Nudge yaw by relative angle in degrees (positive = right, negative = left)
+void nudgeYawDeg(float deltaDegrees);
 
 // ========== Utility Functions ==========
 // Move neck to neutral/center position
