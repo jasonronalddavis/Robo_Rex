@@ -6,7 +6,7 @@ namespace Spine {
 
 // ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t spineYaw = 6;  // PCA9685 channel 15 - spine left/right twist
+  uint8_t spineYaw = 5;  // PCA9685 channel 15 - spine left/right twist
 };
 
 // ========== Initialization ==========

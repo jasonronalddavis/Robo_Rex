@@ -1,12 +1,11 @@
 // src/main.cpp - 15-SERVO CONFIGURATION
-// Robo Rex - Complete T-Rex control with PCA9685
+// Robo Rex - Complete T-Rex control with ESP32-S3 GPIO
 // ESP32-S3 Freenove WROOM board
 
 #include <Arduino.h>
-#include <Wire.h>
 #include <NimBLEDevice.h>
 
-// Servo control via PCA9685
+// Servo control via ESP32 GPIO
 #include "ServoBus.h"
 #include "Servo_Functions/Neck_Function.h"
 #include "Servo_Functions/Head_Function.h"
@@ -14,14 +13,6 @@
 #include "Servo_Functions/Spine_Function.h"
 #include "Servo_Functions/Tail_Function.h"
 #include "Servo_Functions/Leg_Function.h"
-
-// ========== I2C Pin Configuration ==========
-#define I2C_SDA 8   // GPIO 8 for SDA
-#define I2C_SCL 9   // GPIO 9 for SCL
-
-// ========== PCA9685 Configuration ==========
-#define PCA9685_ADDR 0x40    // Default I2C address
-#define PCA9685_FREQ 50.0f   // 50 Hz for servos
 
 // ========== BLE UUIDs (Nordic UART Service) ==========
 static const char* NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
@@ -31,13 +22,71 @@ static const char* NUS_RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
 // ========== Global Variables ==========
 static NimBLECharacteristic* g_txChar = nullptr;
 static String g_lineBuf;
-static ServoBus servoBus;  // PCA9685 servo controller
+static ServoBus servoBus;  // ESP32 GPIO servo controller
+
+// ========== Sweep Test Configuration ==========
+// Set to true to enable continuous sweep test (bypasses normal servo control)
+// Set to false for normal operation
+#define ENABLE_SWEEP_TEST false
+
+struct Sweeper {
+  bool     enabled     = ENABLE_SWEEP_TEST;
+  uint32_t lastMs      = 0;
+  uint16_t intervalMs  = 15;     // update cadence (15ms = smooth sweep)
+  float    minDeg      = 10.0f;  // minimum angle (avoid mechanical limits)
+  float    maxDeg      = 170.0f; // maximum angle (avoid mechanical limits)
+  float    stepDeg     = 1.0f;   // degrees per step
+  float    posDeg      = 10.0f;  // current position
+  int8_t   dir         = +1;     // direction: +1 or -1
+} g_sweep;
 
 // ========== Helper Functions ==========
 static inline void txNotify(const char* s) {
   if (!g_txChar || !s) return;
   g_txChar->setValue((uint8_t*)s, strlen(s));
   g_txChar->notify();
+}
+
+// All 16 servo channels (0-15)
+static const uint8_t kAllCh[16] = {
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+};
+
+// ========== Sweep Test Functions ==========
+// Call this every loop (non-blocking)
+static inline void sweepAllTick() {
+  if (!g_sweep.enabled) return;
+
+  const uint32_t now = millis();
+  if (now - g_sweep.lastMs < g_sweep.intervalMs) return;
+  g_sweep.lastMs = now;
+
+  // Write the current angle to all channels
+  for (uint8_t ch : kAllCh) {
+    servoBus.writeDegrees(ch, g_sweep.posDeg);
+  }
+
+  // Print current position every 10 degrees for monitoring
+  static float lastPrintPos = 0;
+  if (abs(g_sweep.posDeg - lastPrintPos) >= 10.0f) {
+    Serial.print(F("[SWEEP] Position: "));
+    Serial.print(g_sweep.posDeg);
+    Serial.println(F("°"));
+    lastPrintPos = g_sweep.posDeg;
+  }
+
+  // Advance position and bounce at the edges
+  g_sweep.posDeg += g_sweep.dir * g_sweep.stepDeg;
+  if (g_sweep.posDeg >= g_sweep.maxDeg) { 
+    g_sweep.posDeg = g_sweep.maxDeg; 
+    g_sweep.dir = -1;
+    Serial.println(F("[SWEEP] ⟲ Reversing direction (max reached)"));
+  }
+  if (g_sweep.posDeg <= g_sweep.minDeg) { 
+    g_sweep.posDeg = g_sweep.minDeg; 
+    g_sweep.dir = +1;
+    Serial.println(F("[SWEEP] ⟳ Reversing direction (min reached)"));
+  }
 }
 
 // ========== Command Parser ==========
@@ -161,8 +210,27 @@ static void handleCommand(const String& line) {
     servoBus.setAllOff();
     txNotify("All off\n");
   }
+  else if (line == "SWEEP_ON") {
+    g_sweep.enabled = true;
+    g_sweep.posDeg = g_sweep.minDeg;
+    g_sweep.dir = +1;
+    Serial.println(F("[CMD] ✓ Sweep test ENABLED"));
+    txNotify("Sweep test ON\n");
+  }
+  else if (line == "SWEEP_OFF") {
+    g_sweep.enabled = false;
+    Serial.println(F("[CMD] ✓ Sweep test DISABLED"));
+    txNotify("Sweep test OFF\n");
+  }
   else if (line == "STATUS") {
     Serial.println(F("[CMD] System Status:"));
+    Serial.print(F("  Sweep enabled: "));
+    Serial.println(g_sweep.enabled ? "YES" : "NO");
+    if (g_sweep.enabled) {
+      Serial.print(F("  Sweep position: "));
+      Serial.print(g_sweep.posDeg);
+      Serial.println(F("°"));
+    }
     Serial.print(F("  Leg mode: "));
     Serial.println(Leg::mode());
     Serial.print(F("  Speed: "));
@@ -181,6 +249,7 @@ static void handleCommand(const String& line) {
     Serial.println(F("  Legs:   WALK_FORWARD, WALK_BACKWARD"));
     Serial.println(F("          TURN_LEFT, TURN_RIGHT, STOP"));
     Serial.println(F("  System: CENTER_ALL, ALL_OFF, STATUS, HELP"));
+    Serial.println(F("  Test:   SWEEP_ON, SWEEP_OFF"));
     txNotify("Help sent to serial\n");
   }
   
@@ -227,7 +296,7 @@ class ServerCallbacks : public NimBLEServerCallbacks {
 static void setupBLE() {
   Serial.println(F("\n[BLE] Initializing Bluetooth..."));
   
-  NimBLEDevice::init("Robo_Rex_15Servo");
+  NimBLEDevice::init("Robo_Rex_GPIO");
   NimBLEDevice::setMTU(69);
 
   NimBLEServer* server = NimBLEDevice::createServer();
@@ -249,7 +318,7 @@ static void setupBLE() {
   adv->setScanResponse(true);
   adv->start();
 
-  Serial.println(F("[BLE] ✓ Advertising as 'Robo_Rex_15Servo'"));
+  Serial.println(F("[BLE] ✓ Advertising as 'Robo_Rex_GPIO'"));
 }
 
 // ========== Arduino Setup ==========
@@ -261,21 +330,15 @@ void setup() {
   Serial.println(F("╔════════════════════════════════════════════╗"));
   Serial.println(F("║                                            ║"));
   Serial.println(F("║    ROBO REX - 15 SERVO CONFIGURATION       ║"));
-  Serial.println(F("║         PCA9685 Control Mode               ║"));
+  Serial.println(F("║         ESP32-S3 GPIO Control Mode         ║"));
   Serial.println(F("║                                            ║"));
   Serial.println(F("╚════════════════════════════════════════════╝"));
   Serial.println();
   
-  // Initialize I2C
-  Serial.println(F("[I2C] Initializing..."));
-  Wire.begin(I2C_SDA, I2C_SCL);
-  Wire.setClock(100000);
-  Serial.println(F("[I2C] ✓ Ready at 100kHz"));
-  
-  // Initialize PCA9685
-  Serial.println(F("\n[PCA9685] Initializing..."));
-  servoBus.begin(PCA9685_ADDR, PCA9685_FREQ);
-  Serial.println(F("[PCA9685] ✓ Ready"));
+  // Initialize GPIO servo system
+  Serial.println(F("[GPIO] Initializing servo system..."));
+  servoBus.begin();
+  Serial.println(F("[GPIO] ✓ Ready"));
   
   // Initialize servo functions
   Serial.println(F("\n[Servos] Initializing 15 servos..."));
@@ -309,20 +372,31 @@ void setup() {
   // Legs (10 servos - channels 6-15)
   Leg::Map legMap;
   // Right leg
-  legMap.R_hipX  = 6;
-  legMap.R_hipY  = 7;
-  legMap.R_knee  = 8;
-  legMap.R_ankle = 9;
-  legMap.R_foot  = 10;
+  legMap.R_hipX  = 7;
+  legMap.R_hipY  = 10;
+  legMap.R_knee  = 11;
+  legMap.R_ankle = 12;
+  legMap.R_foot  = 13;
   // Left leg
-  legMap.L_hipX  = 11;
-  legMap.L_hipY  = 12;
-  legMap.L_knee  = 13;
-  legMap.L_ankle = 14;
-  legMap.L_foot  = 15;
+  legMap.L_hipX  = 14;
+  legMap.L_hipY  = 15;
+  legMap.L_knee  = 16;
+  legMap.L_ankle = 17;
+  legMap.L_foot  = 18;
   Leg::begin(&servoBus, legMap);
   
   Serial.println(F("[Servos] ✓ All 15 servos initialized"));
+  
+  // Show sweep test status
+  if (g_sweep.enabled) {
+    Serial.println();
+    Serial.println(F("╔════════════════════════════════════════════╗"));
+    Serial.println(F("║  ⚠️  SWEEP TEST MODE ENABLED  ⚠️           ║"));
+    Serial.println(F("║                                            ║"));
+    Serial.println(F("║  All servos will sweep 10° - 170°         ║"));
+    Serial.println(F("║  Send 'SWEEP_OFF' to disable              ║"));
+    Serial.println(F("╚════════════════════════════════════════════╝"));
+  }
   
   // Initialize BLE
   setupBLE();
@@ -331,7 +405,8 @@ void setup() {
   Serial.println(F("\n╔════════════════════════════════════════════╗"));
   Serial.println(F("║           SYSTEM READY                     ║"));
   Serial.println(F("╚════════════════════════════════════════════╝"));
-  Serial.println(F("\n15 servos active on channels 0-15"));
+  Serial.println(F("\nESP32-S3 GPIO control mode active"));
+  Serial.println(F("15 servos on channels 0-15"));
   Serial.println(F("Type HELP for command list\n"));
   
   txNotify("Robo_Rex Ready!\n");
@@ -339,8 +414,13 @@ void setup() {
 
 // ========== Arduino Loop ==========
 void loop() {
-  // Update walking gait (MUST be called every loop!)
-  Leg::tick();
+  // Run sweep test if enabled (takes priority)
+  if (g_sweep.enabled) {
+    sweepAllTick();
+  } else {
+    // Normal operation - update walking gait
+    Leg::tick();
+  }
   
   delay(20);  // 50 Hz update rate
 }

@@ -6,11 +6,11 @@
 // IMU uses Wire1 on GPIO 19/20 (separate from PCA9685 servos)
 // --------------------------------------------------------------------
 #ifndef IMU_SDA_PIN
-#define IMU_SDA_PIN 19
+#define IMU_SDA_PIN 8
 #endif
 
 #ifndef IMU_SCL_PIN
-#define IMU_SCL_PIN 20
+#define IMU_SCL_PIN 9
 #endif
 
 // Enable extra logs by adding -DIMU_DEBUG to build_flags

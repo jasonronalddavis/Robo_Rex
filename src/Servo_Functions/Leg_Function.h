@@ -9,17 +9,17 @@ namespace Leg {
 struct Map {
   // Right leg servos (5 servos) - Channels 6-10
   uint8_t R_hipX   = 7;    // PCA9685 channel 6  - Right hip forward/back
-  uint8_t R_hipY   = 8;    // PCA9685 channel 7  - Right hip up/down
-  uint8_t R_knee   = 9;    // PCA9685 channel 8  - Right knee bend
-  uint8_t R_ankle  = 10;    // PCA9685 channel 9  - Right ankle pivot
-  uint8_t R_foot   = 11;   // PCA9685 channel 10 - Right foot tilt
+  uint8_t R_hipY   = 10;    // PCA9685 channel 7  - Right hip up/down
+  uint8_t R_knee   = 11;    // PCA9685 channel 8  - Right knee bend
+  uint8_t R_ankle  = 12;    // PCA9685 channel 9  - Right ankle pivot
+  uint8_t R_foot   = 13;   // PCA9685 channel 10 - Right foot tilt
   
   // Left leg servos (5 servos) - Channels 11-15
-  uint8_t L_hipX   = 12;   // PCA9685 channel 11 - Left hip forward/back
-  uint8_t L_hipY   = 13;   // PCA9685 channel 12 - Left hip up/down
-  uint8_t L_knee   = 14;   // PCA9685 channel 13 - Left knee bend
-  uint8_t L_ankle  = 15;   // PCA9685 channel 14 - Left ankle pivot
-  uint8_t L_foot   = 16;   // PCA9685 channel 15 - Left foot tilt
+  uint8_t L_hipX   = 14;   // PCA9685 channel 11 - Left hip forward/back
+  uint8_t L_hipY   = 15;   // PCA9685 channel 12 - Left hip up/down
+  uint8_t L_knee   = 16;   // PCA9685 channel 13 - Left knee bend
+  uint8_t L_ankle  = 17;   // PCA9685 channel 14 - Left ankle pivot
+  uint8_t L_foot   = 18;   // PCA9685 channel 15 - Left foot tilt
 };
 
 // ========== Locomotion Modes ==========
