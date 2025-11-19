@@ -1,12 +1,17 @@
 #pragma once
 #include <Arduino.h>
 #include <ESP32Servo.h>
+#include <Adafruit_PWMServoDriver.h>
 
-// ========== GPIO Pin Definitions ==========
+// ========== Hybrid Servo Control Configuration ==========
+// Channels 0-5:  ESP32 GPIO direct control (Neck, Head, Pelvis, Spine, Tail)
+// Channels 6-15: PCA9685 I2C PWM driver (Legs - 10 servos)
+
+// ========== GPIO Pin Definitions (Channels 0-5) ==========
 // NOTE: GPIO 8 and 9 are reserved for IMU (Wire1)
-// Using GPIO pins that don't conflict with IMU or system pins
+// NOTE: GPIO 21 and 22 are reserved for PCA9685 (Wire)
 
-// Single servo channels (0-5)
+// Body servo channels (0-5) - Direct GPIO control
 #define SERVO_CH0_PIN   1   // Neck Yaw
 #define SERVO_CH1_PIN   2   // Jaw
 #define SERVO_CH2_PIN   3   // Head Pitch
@@ -14,18 +19,30 @@
 #define SERVO_CH4_PIN   5   // Spine Yaw
 #define SERVO_CH5_PIN   6   // Tail Wag
 
-// Leg servo channels (6-15) - 10 servos total
-// Using GPIO 7, 10-18 (avoiding 8-9 for IMU, and 33-37 which are hardware restricted)
-#define SERVO_CH6_PIN   7    // Right Hip X
-#define SERVO_CH7_PIN   10   // Right Hip Y
-#define SERVO_CH8_PIN   11   // Right Knee
-#define SERVO_CH9_PIN   12   // Right Ankle
-#define SERVO_CH10_PIN  13   // Right Foot
-#define SERVO_CH11_PIN  14   // Left Hip X
-#define SERVO_CH12_PIN  15   // Left Hip Y
-#define SERVO_CH13_PIN  16   // Left Knee
-#define SERVO_CH14_PIN  17   // Left Ankle
-#define SERVO_CH15_PIN  18   // Left Foot
+// ========== PCA9685 Configuration (Channels 6-15) ==========
+// Leg servo channels (6-15) - 10 servos via PCA9685
+// Channel 6  -> PCA9685 port 0  (Right Hip X)
+// Channel 7  -> PCA9685 port 1  (Right Hip Y)
+// Channel 8  -> PCA9685 port 2  (Right Knee)
+// Channel 9  -> PCA9685 port 3  (Right Ankle)
+// Channel 10 -> PCA9685 port 4  (Right Foot)
+// Channel 11 -> PCA9685 port 5  (Left Hip X)
+// Channel 12 -> PCA9685 port 6  (Left Hip Y)
+// Channel 13 -> PCA9685 port 7  (Left Knee)
+// Channel 14 -> PCA9685 port 8  (Left Ankle)
+// Channel 15 -> PCA9685 port 9  (Left Foot)
+
+#define PCA9685_FIRST_CHANNEL 6  // First channel using PCA9685
+#define PCA9685_I2C_ADDRESS   0x40
+
+// I2C pins for PCA9685 (using default Wire bus)
+#ifndef PCA9685_SDA_PIN
+#define PCA9685_SDA_PIN 21
+#endif
+
+#ifndef PCA9685_SCL_PIN
+#define PCA9685_SCL_PIN 22
+#endif
 
 // Total servo count
 #define SERVO_COUNT 16
@@ -48,11 +65,12 @@ struct ServoLimits {
 // --------------------------- ServoBus ---------------------------
 class ServoBus {
 public:
-  // Initialize ESP32 GPIO servo system
-  // Parameters kept for API compatibility but ignored in GPIO mode
-  bool begin(uint8_t i2c_addr = 0x40, float freq_hz = 50.0f);
+  // Initialize hybrid servo system
+  // i2c_addr: PCA9685 I2C address (default 0x40)
+  // freq_hz: PCA9685 PWM frequency (default 50Hz)
+  bool begin(uint8_t i2c_addr = PCA9685_I2C_ADDRESS, float freq_hz = 50.0f);
 
-  // Change servo output frequency (kept for compatibility)
+  // Change PCA9685 servo output frequency
   void setFrequency(float freq_hz);
 
   // Attach/detach logical servo channels with limits
@@ -67,22 +85,31 @@ public:
   void setAllOff();                     // disable pulses on all channels
 
   // Queries
-  inline bool  isAttached(uint8_t ch) const { 
-    return (ch < SERVO_COUNT) && _attached[ch]; 
+  inline bool  isAttached(uint8_t ch) const {
+    return (ch < SERVO_COUNT) && _attached[ch];
   }
   inline float frequency() const { return _freq; }
 
 private:
-  Servo       _servos[SERVO_COUNT];
+  // GPIO servos (channels 0-5)
+  Servo       _gpioServos[PCA9685_FIRST_CHANNEL];
+  uint8_t     _gpioPins[PCA9685_FIRST_CHANNEL];
+
+  // PCA9685 driver (channels 6-15)
+  Adafruit_PWMServoDriver _pca9685;
+
+  // Shared configuration
   ServoLimits _limits[SERVO_COUNT];
   bool        _attached[SERVO_COUNT] = { false };
-  uint8_t     _pins[SERVO_COUNT];
   float       _freq = 50.0f;
+  uint8_t     _i2cAddr = PCA9685_I2C_ADDRESS;
 
   // Helpers
   uint16_t _degToUs(uint8_t ch, float deg) const;
-  uint8_t  _channelToPin(uint8_t channel) const;
-  
+  uint8_t  _channelToGpioPin(uint8_t channel) const;
+  uint8_t  _channelToPcaPort(uint8_t channel) const;
+  bool     _isGpioChannel(uint8_t channel) const { return channel < PCA9685_FIRST_CHANNEL; }
+
   static inline uint16_t _clampU16(int32_t v, uint16_t lo, uint16_t hi) {
     if (v < (int32_t)lo) return lo;
     if (v > (int32_t)hi) return hi;
