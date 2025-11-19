@@ -25,8 +25,6 @@ static String g_lineBuf;
 static ServoBus servoBus;  // ESP32 GPIO servo controller
 
 // ========== Sweep Test Configuration ==========
-// Set to true to enable continuous sweep test (bypasses normal servo control)
-// Set to false for normal operation
 #define ENABLE_SWEEP_TEST false
 
 struct Sweeper {
@@ -53,7 +51,6 @@ static const uint8_t kAllCh[16] = {
 };
 
 // ========== Sweep Test Functions ==========
-// Call this every loop (non-blocking)
 static inline void sweepAllTick() {
   if (!g_sweep.enabled) return;
 
@@ -61,12 +58,10 @@ static inline void sweepAllTick() {
   if (now - g_sweep.lastMs < g_sweep.intervalMs) return;
   g_sweep.lastMs = now;
 
-  // Write the current angle to all channels
   for (uint8_t ch : kAllCh) {
     servoBus.writeDegrees(ch, g_sweep.posDeg);
   }
 
-  // Print current position every 10 degrees for monitoring
   static float lastPrintPos = 0;
   if (abs(g_sweep.posDeg - lastPrintPos) >= 10.0f) {
     Serial.print(F("[SWEEP] Position: "));
@@ -75,7 +70,6 @@ static inline void sweepAllTick() {
     lastPrintPos = g_sweep.posDeg;
   }
 
-  // Advance position and bounce at the edges
   g_sweep.posDeg += g_sweep.dir * g_sweep.stepDeg;
   if (g_sweep.posDeg >= g_sweep.maxDeg) { 
     g_sweep.posDeg = g_sweep.maxDeg; 
@@ -96,7 +90,7 @@ static void handleCommand(const String& line) {
   Serial.print(F("[CMD] RX: "));
   Serial.println(line);
   
-  // ===== Neck Commands =====
+  // Neck
   if (line == "LOOK_LEFT") {
     Neck::lookLeft(1.0);
     txNotify("Looking left\n");
@@ -110,7 +104,7 @@ static void handleCommand(const String& line) {
     txNotify("Looking center\n");
   }
   
-  // ===== Head/Jaw Commands =====
+  // Head/Jaw
   else if (line == "JAW_OPEN") {
     Head::mouthOpen();
     txNotify("Jaw opened\n");
@@ -136,7 +130,7 @@ static void handleCommand(const String& line) {
     txNotify("Head down\n");
   }
   
-  // ===== Pelvis Commands =====
+  // Pelvis
   else if (line == "PELVIS_LEFT") {
     Pelvis::setRoll01(0.0);
     txNotify("Pelvis left\n");
@@ -150,7 +144,7 @@ static void handleCommand(const String& line) {
     txNotify("Pelvis centered\n");
   }
   
-  // ===== Spine Commands =====
+  // Spine
   else if (line == "SPINE_LEFT") {
     Spine::left();
     txNotify("Spine twisted left\n");
@@ -164,7 +158,7 @@ static void handleCommand(const String& line) {
     txNotify("Spine centered\n");
   }
   
-  // ===== Tail Commands =====
+  // Tail
   else if (line == "TAIL_WAG") {
     Tail::wag();
     txNotify("Tail wagging!\n");
@@ -174,7 +168,7 @@ static void handleCommand(const String& line) {
     txNotify("Tail centered\n");
   }
   
-  // ===== Leg/Walking Commands =====
+  // Legs
   else if (line == "WALK_FORWARD") {
     Leg::walkForward(1.0);
     txNotify("Walking forward\n");
@@ -196,7 +190,7 @@ static void handleCommand(const String& line) {
     txNotify("Stopped\n");
   }
   
-  // ===== System Commands =====
+  // System
   else if (line == "CENTER_ALL") {
     Neck::center();
     Head::center();
@@ -252,8 +246,6 @@ static void handleCommand(const String& line) {
     Serial.println(F("  Test:   SWEEP_ON, SWEEP_OFF"));
     txNotify("Help sent to serial\n");
   }
-  
-  // ===== Unknown Command =====
   else {
     Serial.print(F("[CMD] ✗ Unknown: "));
     Serial.println(line);
@@ -343,28 +335,28 @@ void setup() {
   // Initialize servo functions
   Serial.println(F("\n[Servos] Initializing 15 servos..."));
   
-  // Neck (1 servo - channel 0)
+  // Neck (1 servo - channel 0 -> GPIO 1)
   Neck::Map neckMap;
   neckMap.yaw = 0;
   Neck::begin(&servoBus, neckMap);
   
-  // Head (2 servos - channels 1-2)
+  // Head (2 servos - channels 1-2 -> GPIO 2,3)
   Head::Map headMap;
-  headMap.jaw = 1;
+  headMap.jaw   = 1;
   headMap.pitch = 2;
   Head::begin(&servoBus, headMap);
   
-  // Pelvis (1 servo - channel 3)
+  // Pelvis (1 servo - channel 3 -> GPIO 4)
   Pelvis::Map pelvisMap;
   pelvisMap.roll = 3;
   Pelvis::begin(&servoBus, pelvisMap);
   
-  // Spine (1 servo - channel 4)
+  // Spine (1 servo - channel 4 -> GPIO 5)
   Spine::Map spineMap;
   spineMap.spineYaw = 4;
   Spine::begin(&servoBus, spineMap);
   
-  // Tail (1 servo - channel 5)
+  // Tail (1 servo - channel 5 -> GPIO 6)
   Tail::Map tailMap;
   tailMap.wag = 5;
   Tail::begin(&servoBus, tailMap);
@@ -372,22 +364,21 @@ void setup() {
   // Legs (10 servos - channels 6-15)
   Leg::Map legMap;
   // Right leg
-  legMap.R_hipX  = 7;
-  legMap.R_hipY  = 10;
-  legMap.R_knee  = 11;
-  legMap.R_ankle = 12;
-  legMap.R_foot  = 13;
+  legMap.R_hipX  = 6;   // channel 6  -> GPIO 7
+  legMap.R_hipY  = 7;   // channel 7  -> GPIO 10
+  legMap.R_knee  = 8;   // channel 8  -> GPIO 35
+  legMap.R_ankle = 9;   // channel 9  -> GPIO 36
+  legMap.R_foot  = 10;  // channel 10 -> GPIO 37
   // Left leg
-  legMap.L_hipX  = 14;
-  legMap.L_hipY  = 15;
-  legMap.L_knee  = 16;
-  legMap.L_ankle = 17;
-  legMap.L_foot  = 18;
+  legMap.L_hipX  = 11;  // channel 11 -> GPIO 38
+  legMap.L_hipY  = 12;  // channel 12 -> GPIO 39
+  legMap.L_knee  = 13;  // channel 13 -> GPIO 40
+  legMap.L_ankle = 14;  // channel 14 -> GPIO 41
+  legMap.L_foot  = 15;  // channel 15 -> GPIO 42
   Leg::begin(&servoBus, legMap);
   
   Serial.println(F("[Servos] ✓ All 15 servos initialized"));
   
-  // Show sweep test status
   if (g_sweep.enabled) {
     Serial.println();
     Serial.println(F("╔════════════════════════════════════════════╗"));
@@ -414,11 +405,9 @@ void setup() {
 
 // ========== Arduino Loop ==========
 void loop() {
-  // Run sweep test if enabled (takes priority)
   if (g_sweep.enabled) {
     sweepAllTick();
   } else {
-    // Normal operation - update walking gait
     Leg::tick();
   }
   
