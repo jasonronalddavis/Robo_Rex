@@ -37,13 +37,12 @@ bool ServoBus::begin(uint8_t /*i2c_addr*/, float freq_hz) {
     _pins[ch]     = _channelToPin(ch);
   }
 
-  // ESP32Servo global config if needed
-  // (Most boards work fine with defaults, but you can tune here.)
-  // Example:
-  // ESP32PWM::allocateTimer(0);
-  // ESP32PWM::allocateTimer(1);
-  // ESP32PWM::allocateTimer(2);
-  // ESP32PWM::allocateTimer(3);
+  // ESP32Servo global config - allocate 4 timers for 16 servos
+  // Each timer provides 4 LEDC channels: 4 timers × 4 = 16 channels
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
 
   return true;
 }

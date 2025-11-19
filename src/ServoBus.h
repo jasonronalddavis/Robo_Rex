@@ -15,17 +15,17 @@
 #define SERVO_CH5_PIN   6   // Tail Wag
 
 // Leg servo channels (6-15) - 10 servos total
-// Hip X/Y still on low-number pins, rest moved to 35–42
+// Using GPIO 7, 10-18 (avoiding 8-9 for IMU, and 33-37 which are hardware restricted)
 #define SERVO_CH6_PIN   7    // Right Hip X
 #define SERVO_CH7_PIN   10   // Right Hip Y
-#define SERVO_CH8_PIN   35   // Right Knee
-#define SERVO_CH9_PIN   36   // Right Ankle
-#define SERVO_CH10_PIN  37   // Right Foot
-#define SERVO_CH11_PIN  38   // Left Hip X
-#define SERVO_CH12_PIN  39   // Left Hip Y
-#define SERVO_CH13_PIN  40   // Left Knee
-#define SERVO_CH14_PIN  41   // Left Ankle
-#define SERVO_CH15_PIN  42   // Left Foot
+#define SERVO_CH8_PIN   11   // Right Knee
+#define SERVO_CH9_PIN   12   // Right Ankle
+#define SERVO_CH10_PIN  13   // Right Foot
+#define SERVO_CH11_PIN  14   // Left Hip X
+#define SERVO_CH12_PIN  15   // Left Hip Y
+#define SERVO_CH13_PIN  16   // Left Knee
+#define SERVO_CH14_PIN  17   // Left Ankle
+#define SERVO_CH15_PIN  18   // Left Foot
 
 // Total servo count
 #define SERVO_COUNT 16
