@@ -37,11 +37,11 @@
 
 // I2C pins for PCA9685 (using default Wire bus)
 #ifndef PCA9685_SDA_PIN
-#define PCA9685_SDA_PIN 21
+#define PCA9685_SDA_PIN 10
 #endif
 
 #ifndef PCA9685_SCL_PIN
-#define PCA9685_SCL_PIN 22
+#define PCA9685_SCL_PIN 11
 #endif
 
 // Total servo count
