@@ -9,7 +9,7 @@
 
 // ========== GPIO Pin Definitions (Channels 0-5) ==========
 // NOTE: GPIO 8 and 9 are reserved for IMU (Wire1)
-// NOTE: GPIO 21 and 22 are reserved for PCA9685 (Wire)
+// NOTE: GPIO 10 and 11 are reserved for PCA9685 (Wire)
 
 // Body servo channels (0-5) - Direct GPIO control
 #define SERVO_CH0_PIN   1   // Neck Yaw
