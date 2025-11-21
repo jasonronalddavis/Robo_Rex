@@ -171,12 +171,16 @@ void begin(ServoBus* bus, const Map& map) {
   // Initialize gait state
   g_mode  = IDLE;
   g_t0_ms = millis();
-  
-  Serial.println(F("[Leg] Initialized on PCA9685"));
+
+  Serial.println(F("[Leg] Initialized with ServoBus (PCA9685 mode)"));
   Serial.print(F("  Right leg: Channels "));
-  Serial.print(CH.R_hipX); Serial.print(F("-")); Serial.println(CH.R_foot);
+  Serial.print(CH.R_hipX); Serial.print(F("-")); Serial.print(CH.R_foot);
+  Serial.print(F(" (PCA ports 0-4)"));
+  Serial.println();
   Serial.print(F("  Left leg:  Channels "));
-  Serial.print(CH.L_hipX); Serial.print(F("-")); Serial.println(CH.L_foot);
+  Serial.print(CH.L_hipX); Serial.print(F("-")); Serial.print(CH.L_foot);
+  Serial.print(F(" (PCA ports 5-9)"));
+  Serial.println();
 }
 
 // ========== Locomotion Commands ==========

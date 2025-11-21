@@ -1,5 +1,6 @@
-// src/main.cpp - 15-SERVO CONFIGURATION
-// Robo Rex - Complete T-Rex control with ESP32-S3 GPIO
+// src/main.cpp - 16-SERVO HYBRID CONFIGURATION
+// Robo Rex - Complete T-Rex control with ESP32-S3
+// Hybrid Mode: GPIO (channels 0-5) + PCA9685 (channels 6-15)
 // ESP32-S3 Freenove WROOM board
 
 #include <Arduino.h>
@@ -321,63 +322,65 @@ void setup() {
   Serial.println();
   Serial.println(F("╔════════════════════════════════════════════╗"));
   Serial.println(F("║                                            ║"));
-  Serial.println(F("║    ROBO REX - 15 SERVO CONFIGURATION       ║"));
-  Serial.println(F("║         ESP32-S3 GPIO Control Mode         ║"));
+  Serial.println(F("║    ROBO REX - 16 SERVO HYBRID MODE         ║"));
+  Serial.println(F("║   GPIO (0-5) + PCA9685 (6-15)              ║"));
   Serial.println(F("║                                            ║"));
   Serial.println(F("╚════════════════════════════════════════════╝"));
   Serial.println();
   
-  // Initialize GPIO servo system
-  Serial.println(F("[GPIO] Initializing servo system..."));
+  // Initialize hybrid servo system (GPIO + PCA9685)
+  Serial.println(F("[Hybrid] Initializing servo system..."));
   servoBus.begin();
-  Serial.println(F("[GPIO] ✓ Ready"));
-  
+  Serial.println(F("[Hybrid] ✓ Ready"));
+
   // Initialize servo functions
-  Serial.println(F("\n[Servos] Initializing 15 servos..."));
-  
+  Serial.println(F("\n[Servos] Initializing 16 servos..."));
+  Serial.println(F("  Channels 0-5:  GPIO direct control"));
+  Serial.println(F("  Channels 6-15: PCA9685 I2C driver"));
+
   // Neck (1 servo - channel 0 -> GPIO 1)
   Neck::Map neckMap;
   neckMap.yaw = 0;
   Neck::begin(&servoBus, neckMap);
-  
+
   // Head (2 servos - channels 1-2 -> GPIO 2,3)
   Head::Map headMap;
   headMap.jaw   = 1;
   headMap.pitch = 2;
   Head::begin(&servoBus, headMap);
-  
+
   // Pelvis (1 servo - channel 3 -> GPIO 4)
   Pelvis::Map pelvisMap;
   pelvisMap.roll = 3;
   Pelvis::begin(&servoBus, pelvisMap);
-  
+
   // Spine (1 servo - channel 4 -> GPIO 5)
   Spine::Map spineMap;
   spineMap.spineYaw = 4;
   Spine::begin(&servoBus, spineMap);
-  
+
   // Tail (1 servo - channel 5 -> GPIO 6)
   Tail::Map tailMap;
   tailMap.wag = 5;
   Tail::begin(&servoBus, tailMap);
-  
-  // Legs (10 servos - channels 6-15)
+
+  // Legs (10 servos - channels 6-15 -> PCA9685 ports 0-9)
   Leg::Map legMap;
   // Right leg
-  legMap.R_hipX  = 6;   // channel 6  -> GPIO 7
-  legMap.R_hipY  = 7;   // channel 7  -> GPIO 10
-  legMap.R_knee  = 8;   // channel 8  -> GPIO 35
-  legMap.R_ankle = 9;   // channel 9  -> GPIO 36
-  legMap.R_foot  = 10;  // channel 10 -> GPIO 37
+  legMap.R_hipX  = 6;   // channel 6  -> PCA9685 port 0
+  legMap.R_hipY  = 7;   // channel 7  -> PCA9685 port 1
+  legMap.R_knee  = 8;   // channel 8  -> PCA9685 port 2
+  legMap.R_ankle = 9;   // channel 9  -> PCA9685 port 3
+  legMap.R_foot  = 10;  // channel 10 -> PCA9685 port 4
   // Left leg
-  legMap.L_hipX  = 11;  // channel 11 -> GPIO 38
-  legMap.L_hipY  = 12;  // channel 12 -> GPIO 39
-  legMap.L_knee  = 13;  // channel 13 -> GPIO 40
-  legMap.L_ankle = 14;  // channel 14 -> GPIO 41
-  legMap.L_foot  = 15;  // channel 15 -> GPIO 42
+  legMap.L_hipX  = 11;  // channel 11 -> PCA9685 port 5
+  legMap.L_hipY  = 12;  // channel 12 -> PCA9685 port 6
+  legMap.L_knee  = 13;  // channel 13 -> PCA9685 port 7
+  legMap.L_ankle = 14;  // channel 14 -> PCA9685 port 8
+  legMap.L_foot  = 15;  // channel 15 -> PCA9685 port 9
   Leg::begin(&servoBus, legMap);
-  
-  Serial.println(F("[Servos] ✓ All 15 servos initialized"));
+
+  Serial.println(F("[Servos] ✓ All 16 servos initialized"));
   
   if (g_sweep.enabled) {
     Serial.println();
@@ -396,8 +399,9 @@ void setup() {
   Serial.println(F("\n╔════════════════════════════════════════════╗"));
   Serial.println(F("║           SYSTEM READY                     ║"));
   Serial.println(F("╚════════════════════════════════════════════╝"));
-  Serial.println(F("\nESP32-S3 GPIO control mode active"));
-  Serial.println(F("15 servos on channels 0-15"));
+  Serial.println(F("\nHybrid servo control mode active"));
+  Serial.println(F("  GPIO: 6 servos (channels 0-5)"));
+  Serial.println(F("  PCA9685: 10 servos (channels 6-15)"));
   Serial.println(F("Type HELP for command list\n"));
   
   txNotify("Robo_Rex Ready!\n");
