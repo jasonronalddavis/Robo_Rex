@@ -5,22 +5,22 @@
 namespace Leg {
 
 // ========== Servo Channel Mapping Structure ==========
-// These are *logical ServoBus channels* (6-15), controlled via PCA9685 I2C driver.
-// Channels 6-15 map to PCA9685 ports 0-9.
+// Leg servos use hybrid control: 9 PCA9685 + 1 GPIO (L_foot)
+// PCA9685 ports skip port 2 (reserved for Neck test)
 struct Map {
-  // Right leg servos (5 servos) - channels 6-10
+  // Right leg servos (5 servos) - channels 6-7, 9-11
   uint8_t R_hipX   = 6;   // channel 6  - Right hip forward/back (PCA9685 port 0)
   uint8_t R_hipY   = 7;   // channel 7  - Right hip up/down     (PCA9685 port 1)
-  uint8_t R_knee   = 8;   // channel 8  - Right knee bend       (PCA9685 port 2)
-  uint8_t R_ankle  = 9;   // channel 9  - Right ankle pivot     (PCA9685 port 3)
-  uint8_t R_foot   = 10;  // channel 10 - Right foot tilt       (PCA9685 port 4)
+  uint8_t R_knee   = 9;   // channel 9  - Right knee bend       (PCA9685 port 3)
+  uint8_t R_ankle  = 10;  // channel 10 - Right ankle pivot     (PCA9685 port 4)
+  uint8_t R_foot   = 11;  // channel 11 - Right foot tilt       (PCA9685 port 5)
 
-  // Left leg servos (5 servos) - channels 11-15
-  uint8_t L_hipX   = 11;  // channel 11 - Left hip forward/back (PCA9685 port 5)
-  uint8_t L_hipY   = 12;  // channel 12 - Left hip up/down      (PCA9685 port 6)
-  uint8_t L_knee   = 13;  // channel 13 - Left knee bend        (PCA9685 port 7)
-  uint8_t L_ankle  = 14;  // channel 14 - Left ankle pivot      (PCA9685 port 8)
-  uint8_t L_foot   = 15;  // channel 15 - Left foot tilt        (PCA9685 port 9)
+  // Left leg servos (5 servos) - channels 12-15, 5
+  uint8_t L_hipX   = 12;  // channel 12 - Left hip forward/back (PCA9685 port 6)
+  uint8_t L_hipY   = 13;  // channel 13 - Left hip up/down      (PCA9685 port 7)
+  uint8_t L_knee   = 14;  // channel 14 - Left knee bend        (PCA9685 port 8)
+  uint8_t L_ankle  = 15;  // channel 15 - Left ankle pivot      (PCA9685 port 9)
+  uint8_t L_foot   = 5;   // channel 5  - Left foot tilt        (GPIO 6)
 };
 
 // ========== Locomotion Modes ==========

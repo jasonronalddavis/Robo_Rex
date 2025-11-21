@@ -143,6 +143,7 @@ void begin(ServoBus* bus, const Map& map) {
   }
 
   // Attach all leg servos to PCA9685 with limits
+  Serial.println(F("[Leg] Attaching servos..."));
   SB->attach(CH.R_hipX,  LIM_HIP_X);
   SB->attach(CH.R_hipY,  LIM_HIP_Y);
   SB->attach(CH.R_knee,  LIM_KNEE);
@@ -154,8 +155,10 @@ void begin(ServoBus* bus, const Map& map) {
   SB->attach(CH.L_knee,  LIM_KNEE);
   SB->attach(CH.L_ankle, LIM_ANKLE);
   SB->attach(CH.L_foot,  LIM_FOOT);
+  Serial.println(F("[Leg] All servos attached"));
 
   // Move to neutral stance
+  Serial.println(F("[Leg] Moving to neutral stance..."));
   SB->writeDegrees(CH.R_hipX,  NEUTRAL_HIP_X);
   SB->writeDegrees(CH.R_hipY,  NEUTRAL_HIP_Y);
   SB->writeDegrees(CH.R_knee,  NEUTRAL_KNEE);
@@ -167,20 +170,27 @@ void begin(ServoBus* bus, const Map& map) {
   SB->writeDegrees(CH.L_knee,  NEUTRAL_KNEE);
   SB->writeDegrees(CH.L_ankle, NEUTRAL_ANKLE);
   SB->writeDegrees(CH.L_foot,  NEUTRAL_FOOT);
+  Serial.println(F("[Leg] Neutral stance complete"));
 
   // Initialize gait state
   g_mode  = IDLE;
   g_t0_ms = millis();
 
-  Serial.println(F("[Leg] Initialized with ServoBus (PCA9685 mode)"));
+  Serial.println(F("[Leg] Initialized with ServoBus (HYBRID mode)"));
   Serial.print(F("  Right leg: Channels "));
-  Serial.print(CH.R_hipX); Serial.print(F("-")); Serial.print(CH.R_foot);
-  Serial.print(F(" (PCA ports 0-4)"));
-  Serial.println();
+  Serial.print(CH.R_hipX); Serial.print(F(","));
+  Serial.print(CH.R_hipY); Serial.print(F(","));
+  Serial.print(CH.R_knee); Serial.print(F(","));
+  Serial.print(CH.R_ankle); Serial.print(F(","));
+  Serial.print(CH.R_foot);
+  Serial.println(F(" (PCA ports 0,1,3,4,5)"));
   Serial.print(F("  Left leg:  Channels "));
-  Serial.print(CH.L_hipX); Serial.print(F("-")); Serial.print(CH.L_foot);
-  Serial.print(F(" (PCA ports 5-9)"));
-  Serial.println();
+  Serial.print(CH.L_hipX); Serial.print(F(","));
+  Serial.print(CH.L_hipY); Serial.print(F(","));
+  Serial.print(CH.L_knee); Serial.print(F(","));
+  Serial.print(CH.L_ankle); Serial.print(F(","));
+  Serial.print(CH.L_foot);
+  Serial.println(F(" (PCA ports 6,7,8,9 + GPIO6)"));
 }
 
 // ========== Locomotion Commands ==========

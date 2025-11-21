@@ -1,13 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
-
 #include <ESP32Servo.h>
 #include <Adafruit_PWMServoDriver.h>
-
-#include <Adafruit_PWMServoDriver.h>
-
- 
 
 // ========== Hybrid Servo Control Configuration ==========
 
@@ -27,43 +22,43 @@
 
 // Body servo channels (0-5) - Direct GPIO control
 
-#define SERVO_CH0_PIN   1   // Neck Yaw
+#define SERVO_CH0_PIN   1   // Head Jaw
 
-#define SERVO_CH1_PIN   2   // Jaw
+#define SERVO_CH1_PIN   2   // Head Pitch
 
-#define SERVO_CH2_PIN   3   // Head Pitch
+#define SERVO_CH2_PIN   3   // Pelvis Roll
 
-#define SERVO_CH3_PIN   4   // Pelvis Roll
+#define SERVO_CH3_PIN   4   // Spine Yaw
 
-#define SERVO_CH4_PIN   5   // Spine Yaw
+#define SERVO_CH4_PIN   5   // Tail Wag
 
-#define SERVO_CH5_PIN   6   // Tail Wag
+#define SERVO_CH5_PIN   6   // Left Foot (leg servo)
 
  
 
 // ========== PCA9685 Configuration (Channels 6-15) ==========
 
-// Leg servo channels (6-15) - 10 servos via PCA9685
+// PCA9685 servo channels - 11 servos via PCA9685 (ports 0-9)
 
 // Channel 6  -> PCA9685 port 0  (Right Hip X)
 
 // Channel 7  -> PCA9685 port 1  (Right Hip Y)
 
-// Channel 8  -> PCA9685 port 2  (Right Knee)
+// Channel 8  -> PCA9685 port 2  (Neck Yaw) *** TEST ***
 
-// Channel 9  -> PCA9685 port 3  (Right Ankle)
+// Channel 9  -> PCA9685 port 3  (Right Knee)
 
-// Channel 10 -> PCA9685 port 4  (Right Foot)
+// Channel 10 -> PCA9685 port 4  (Right Ankle)
 
-// Channel 11 -> PCA9685 port 5  (Left Hip X)
+// Channel 11 -> PCA9685 port 5  (Right Foot)
 
-// Channel 12 -> PCA9685 port 6  (Left Hip Y)
+// Channel 12 -> PCA9685 port 6  (Left Hip X)
 
-// Channel 13 -> PCA9685 port 7  (Left Knee)
+// Channel 13 -> PCA9685 port 7  (Left Hip Y)
 
-// Channel 14 -> PCA9685 port 8  (Left Ankle)
+// Channel 14 -> PCA9685 port 8  (Left Knee)
 
-// Channel 15 -> PCA9685 port 9  (Left Foot)
+// Channel 15 -> PCA9685 port 9  (Left Ankle)
 
  
 
@@ -77,7 +72,7 @@
 
 #ifndef PCA9685_SDA_PIN
 
-#define PCA9685_SDA_PIN 4
+#define PCA9685_SDA_PIN 10
 
 #endif
 
@@ -85,7 +80,7 @@
 
 #ifndef PCA9685_SCL_PIN
 
-#define PCA9685_SCL_PIN 5
+#define PCA9685_SCL_PIN 11
 
 #endif
 
@@ -202,9 +197,7 @@ private:
   // Shared configuration
 
   ServoLimits _limits[SERVO_COUNT];
-
   bool        _attached[SERVO_COUNT] = { false };
-
   float       _freq = 50.0f;
   uint8_t     _i2cAddr = PCA9685_I2C_ADDRESS;
 
@@ -241,3 +234,5 @@ private:
   }
 
 };
+
+ 
