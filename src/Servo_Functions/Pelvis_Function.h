@@ -24,9 +24,9 @@ void setLevel01(float level01);
 // Alias for compatibility with main.cpp
 void setRoll01(float level01);
 
-// ========== IMU Stabilization ==========
-// Feedforward from IMU for closed-loop leveling
-// Pass normalized roll level (0.0-1.0) computed from IMU data
+// ========== Stabilization ==========
+// Set roll level with normalized input for closed-loop leveling
+// Pass normalized roll level (0.0-1.0)
 void stabilize(float rollLevel01);
 
 // ========== Utility Functions ==========

@@ -26,7 +26,7 @@ static String g_lineBuf;
 static ServoBus servoBus;  // ESP32 GPIO servo controller
 
 // ========== Sweep Test Configuration ==========
-#define ENABLE_SWEEP_TEST false
+#define ENABLE_SWEEP_TEST true
 
 struct Sweeper {
   bool     enabled     = ENABLE_SWEEP_TEST;

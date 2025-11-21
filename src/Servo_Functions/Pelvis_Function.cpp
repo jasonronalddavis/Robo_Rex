@@ -84,13 +84,11 @@ void setRoll01(float level01) {
   set(level01);
 }
 
-// ========== IMU Stabilization ==========
+// ========== Stabilization ==========
 
-// Feedforward from IMU for closed-loop leveling
+// Set roll level for closed-loop leveling
 void stabilize(float rollLevel01) {
-  // In your IMU loop, you compute rollLevel01 as:
-  //   clamp(k * roll_deg + b, 0.0, 1.0)
-  // This provides continuous correction based on IMU feedback
+  // Pass normalized roll level (0.0-1.0) for continuous correction
   set(rollLevel01);
 }
 
