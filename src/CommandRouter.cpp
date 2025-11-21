@@ -9,9 +9,6 @@
 #include "Servo_Functions/Tail_Function.h"
 #include "Servo_Functions/Pelvis_Function.h"
 
-// Optional stabilization (already used in your project)
-#include "IMU.h"
-
 namespace CommandRouter {
 
 // ---------------- Internal state ----------------
@@ -158,25 +155,6 @@ static void handleLegacyJson(const JsonDocument& doc) {
   if (cmd == "rex_speed_adjust") { Leg::adjustSpeed(doc["delta"] | 0.1f); return; }
   if (cmd == "rex_stride_set")   { Leg::setStride  (doc["value"] | 0.6f); return; }
   if (cmd == "rex_posture")      { Leg::setPosture (doc["level"] | 0.5f); return; }
-
-  // IMU toggles (optional)
-  if (cmd == "rex_stab_enable")  { IMU::enable(true);  return; }
-  if (cmd == "rex_stab_disable") { IMU::enable(false); return; }
-
-  if (cmd == "rex_stab_gains") {
-    ImuGains g = IMU::getGains();
-    if (doc.containsKey("k_roll"))   g.k_roll  = doc["k_roll"].as<float>();
-    if (doc.containsKey("b_roll"))   g.b_roll  = doc["b_roll"].as<float>();
-    if (doc.containsKey("k_pitch"))  g.k_pitch = doc["k_pitch"].as<float>();
-    if (doc.containsKey("b_pitch"))  g.b_pitch = doc["b_pitch"].as<float>();
-    IMU::setGains(g);
-    return;
-  }
-
-  if (cmd == "rex_stab_cal") {
-    IMU::setOffsets(doc["roll0"] | 0.0f, doc["pitch0"] | 0.0f, doc["yaw0"] | 0.0f);
-    return;
-  }
 
   // Unknown legacy command
   Serial.print(F("Unknown legacy JSON cmd: "));
