@@ -6,9 +6,9 @@
 
 // ========== Hybrid Servo Control Configuration ==========
 
-// Channels 0-5:  ESP32 GPIO direct control (Neck, Head, Pelvis, Spine, Tail)
+// Channels 0-5:  ESP32 GPIO direct control (Neck, Head x2, Pelvis, Spine, Tail = 6 servos)
 
-// Channels 6-15: PCA9685 I2C PWM driver (Legs - 10 servos)
+// Channels 6-15: PCA9685 I2C PWM driver (Legs = 10 servos)
 
  
 
@@ -20,43 +20,43 @@
 
 // Body servo channels (0-5) - Direct GPIO control
 
-#define SERVO_CH0_PIN   1   // Head Jaw
+#define SERVO_CH0_PIN   1   // Neck Yaw
 
-#define SERVO_CH1_PIN   2   // Head Pitch
+#define SERVO_CH1_PIN   2   // Head Jaw
 
-#define SERVO_CH2_PIN   3   // Pelvis Roll
+#define SERVO_CH2_PIN   3   // Head Pitch
 
-#define SERVO_CH3_PIN   4   // Spine Yaw
+#define SERVO_CH3_PIN   4   // Pelvis Roll
 
-#define SERVO_CH4_PIN   5   // Tail Wag
+#define SERVO_CH4_PIN   5   // Spine Yaw
 
-#define SERVO_CH5_PIN   6   // Left Foot (leg servo)
+#define SERVO_CH5_PIN   6   // Tail Wag
 
  
 
 // ========== PCA9685 Configuration (Channels 6-15) ==========
 
-// PCA9685 servo channels - 11 servos via PCA9685 (ports 0-9)
+// PCA9685 servo channels - 10 leg servos via PCA9685 (ports 0-9)
 
 // Channel 6  -> PCA9685 port 0  (Right Hip X)
 
 // Channel 7  -> PCA9685 port 1  (Right Hip Y)
 
-// Channel 8  -> PCA9685 port 2  (Neck Yaw) *** TEST ***
+// Channel 8  -> PCA9685 port 2  (Right Knee)
 
-// Channel 9  -> PCA9685 port 3  (Right Knee)
+// Channel 9  -> PCA9685 port 3  (Right Ankle)
 
-// Channel 10 -> PCA9685 port 4  (Right Ankle)
+// Channel 10 -> PCA9685 port 4  (Right Foot)
 
-// Channel 11 -> PCA9685 port 5  (Right Foot)
+// Channel 11 -> PCA9685 port 5  (Left Hip X)
 
-// Channel 12 -> PCA9685 port 6  (Left Hip X)
+// Channel 12 -> PCA9685 port 6  (Left Hip Y)
 
-// Channel 13 -> PCA9685 port 7  (Left Hip Y)
+// Channel 13 -> PCA9685 port 7  (Left Knee)
 
-// Channel 14 -> PCA9685 port 8  (Left Knee)
+// Channel 14 -> PCA9685 port 8  (Left Ankle)
 
-// Channel 15 -> PCA9685 port 9  (Left Ankle)
+// Channel 15 -> PCA9685 port 9  (Left Foot)
 
  
 
