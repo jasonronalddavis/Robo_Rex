@@ -322,64 +322,61 @@ void setup() {
   Serial.println();
   Serial.println(F("╔════════════════════════════════════════════╗"));
   Serial.println(F("║                                            ║"));
-  Serial.println(F("║    ROBO REX - 16 SERVO HYBRID MODE         ║"));
-  Serial.println(F("║   GPIO (0-5) + PCA9685 (6-15)              ║"));
-  Serial.println(F("║   *** NECK TEST: PCA9685 PORT 2 ***        ║"));
+  Serial.println(F("║      ROBO REX - 16 SERVO PCA9685           ║"));
+  Serial.println(F("║    Direct Port Mapping (0-15)              ║"));
   Serial.println(F("║                                            ║"));
   Serial.println(F("╚════════════════════════════════════════════╝"));
   Serial.println();
-  
-  // Initialize hybrid servo system (GPIO + PCA9685)
-  Serial.println(F("[Hybrid] Initializing servo system..."));
+
+  // Initialize PCA9685 servo system
+  Serial.println(F("[Setup] Initializing PCA9685..."));
   servoBus.begin();
-  Serial.println(F("[Hybrid] ✓ Ready"));
+  Serial.println(F("[Setup] ✓ PCA9685 Ready"));
 
   // Initialize servo functions
-  Serial.println(F("\n[Servos] Initializing 16 servos..."));
-  Serial.println(F("  Channels 0-4:  GPIO direct control (Head, Pelvis, Spine, Tail)"));
-  Serial.println(F("  Channel  8:    PCA9685 port 2 (Neck - TEST)"));
-  Serial.println(F("  Channels 6-7, 9-15: PCA9685 ports 0-1, 3-9 (Legs)"));
+  // Port number in code = Physical port on PCA9685 board
+  Serial.println(F("\n[Setup] Initializing 16 servos on ports 0-15..."));
 
-  // Head (2 servos - channels 0-1 -> GPIO 1,2)
+  // Head (2 servos - PCA9685 ports 0-1)
   Head::Map headMap;
-  headMap.jaw   = 0;
-  headMap.pitch = 1;
+  headMap.jaw   = 0;  // Port 0
+  headMap.pitch = 1;  // Port 1
   Head::begin(&servoBus, headMap);
 
-  // Pelvis (1 servo - channel 2 -> GPIO 3)
-  Pelvis::Map pelvisMap;
-  pelvisMap.roll = 2;
-  Pelvis::begin(&servoBus, pelvisMap);
-
-  // Spine (1 servo - channel 3 -> GPIO 4)
-  Spine::Map spineMap;
-  spineMap.spineYaw = 3;
-  Spine::begin(&servoBus, spineMap);
-
-  // Tail (1 servo - channel 4 -> GPIO 5)
-  Tail::Map tailMap;
-  tailMap.wag = 4;
-  Tail::begin(&servoBus, tailMap);
-
-  // Neck (1 servo - channel 8 -> PCA9685 port 2) *** TEST ***
+  // Neck (1 servo - PCA9685 port 2)
   Neck::Map neckMap;
-  neckMap.yaw = 8;
+  neckMap.yaw = 2;  // Port 2 ← Direct mapping!
   Neck::begin(&servoBus, neckMap);
 
-  // Legs (10 servos - channels 6-7, 9-15 -> PCA9685 ports 0-1, 3-9)
+  // Pelvis (1 servo - PCA9685 port 3)
+  Pelvis::Map pelvisMap;
+  pelvisMap.roll = 3;  // Port 3
+  Pelvis::begin(&servoBus, pelvisMap);
+
+  // Spine (1 servo - PCA9685 port 4)
+  Spine::Map spineMap;
+  spineMap.spineYaw = 4;  // Port 4
+  Spine::begin(&servoBus, spineMap);
+
+  // Tail (1 servo - PCA9685 port 5)
+  Tail::Map tailMap;
+  tailMap.wag = 5;  // Port 5
+  Tail::begin(&servoBus, tailMap);
+
+  // Legs (10 servos - PCA9685 ports 6-15)
   Leg::Map legMap;
-  // Right leg
-  legMap.R_hipX  = 6;   // channel 6  -> PCA9685 port 0
-  legMap.R_hipY  = 7;   // channel 7  -> PCA9685 port 1
-  legMap.R_knee  = 9;   // channel 9  -> PCA9685 port 3 (skipping port 2)
-  legMap.R_ankle = 10;  // channel 10 -> PCA9685 port 4
-  legMap.R_foot  = 11;  // channel 11 -> PCA9685 port 5
-  // Left leg
-  legMap.L_hipX  = 12;  // channel 12 -> PCA9685 port 6
-  legMap.L_hipY  = 13;  // channel 13 -> PCA9685 port 7
-  legMap.L_knee  = 14;  // channel 14 -> PCA9685 port 8
-  legMap.L_ankle = 15;  // channel 15 -> PCA9685 port 9
-  legMap.L_foot  = 5;   // channel 5  -> GPIO 6 (moved from PCA9685)
+  // Right leg (ports 6-10)
+  legMap.R_hipX  = 6;   // Port 6
+  legMap.R_hipY  = 7;   // Port 7
+  legMap.R_knee  = 8;   // Port 8
+  legMap.R_ankle = 9;   // Port 9
+  legMap.R_foot  = 10;  // Port 10
+  // Left leg (ports 11-15)
+  legMap.L_hipX  = 11;  // Port 11
+  legMap.L_hipY  = 12;  // Port 12
+  legMap.L_knee  = 13;  // Port 13
+  legMap.L_ankle = 14;  // Port 14
+  legMap.L_foot  = 15;  // Port 15
   Leg::begin(&servoBus, legMap);
 
   Serial.println(F("[Servos] ✓ All 16 servos initialized"));
@@ -401,11 +398,12 @@ void setup() {
   Serial.println(F("\n╔════════════════════════════════════════════╗"));
   Serial.println(F("║           SYSTEM READY                     ║"));
   Serial.println(F("╚════════════════════════════════════════════╝"));
-  Serial.println(F("\nHybrid servo control mode active (TEST)"));
-  Serial.println(F("  GPIO: 5 servos (ch 0-4) + 1 leg (ch 5)"));
-  Serial.println(F("  PCA9685 port 2: Neck (ch 8)"));
-  Serial.println(F("  PCA9685 ports 0-1,3-9: Legs (ch 6-7,9-15)"));
-  Serial.println(F("Type HELP for command list\n"));
+  Serial.println(F("\nPCA9685 Direct Port Mapping:"));
+  Serial.println(F("  Ports 0-1:   Head (Jaw, Pitch)"));
+  Serial.println(F("  Port 2:      Neck (Yaw)"));
+  Serial.println(F("  Ports 3-5:   Pelvis, Spine, Tail"));
+  Serial.println(F("  Ports 6-15:  Legs (10 servos)"));
+  Serial.println(F("\nType HELP for command list\n"));
   
   txNotify("Robo_Rex Ready!\n");
 }

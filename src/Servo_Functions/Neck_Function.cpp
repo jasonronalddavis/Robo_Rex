@@ -31,13 +31,13 @@ void begin(ServoBus* bus, const Map& map) {
     return;
   }
   
-  // Attach servo to PCA9685 channel with limits
+  // Attach servo to PCA9685 port
   SB->attach(CH.yaw, LIM_YAW);
-  
+
   // Move to neutral position
   SB->writeDegrees(CH.yaw, NEUTRAL_YAW_DEG);
-  
-  Serial.print(F("[Neck] Initialized on PCA9685 channel "));
+
+  Serial.print(F("[Neck] Initialized on PCA9685 port "));
   Serial.println(CH.yaw);
 }
 

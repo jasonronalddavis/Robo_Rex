@@ -4,13 +4,13 @@
 
 namespace Neck {
 
-// ========== Pin Mapping Structure ==========
+// ========== Port Mapping Structure ==========
 struct Map {
-  uint8_t yaw = 1;   // PCA9685 channel 0 - neck left/right turn
+  uint8_t yaw = 2;   // PCA9685 port 2 - neck yaw (left/right)
 };
 
 // ========== Initialization ==========
-// Initialize with ServoBus (PCA9685 control)
+// Initialize with ServoBus
 void begin(ServoBus* bus, const Map& map);
 
 // ========== Primary Control Functions ==========

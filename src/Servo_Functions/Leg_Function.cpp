@@ -176,21 +176,19 @@ void begin(ServoBus* bus, const Map& map) {
   g_mode  = IDLE;
   g_t0_ms = millis();
 
-  Serial.println(F("[Leg] Initialized with ServoBus (HYBRID mode)"));
-  Serial.print(F("  Right leg: Channels "));
+  Serial.println(F("[Leg] Initialized on PCA9685"));
+  Serial.print(F("  Right leg: Ports "));
   Serial.print(CH.R_hipX); Serial.print(F(","));
   Serial.print(CH.R_hipY); Serial.print(F(","));
   Serial.print(CH.R_knee); Serial.print(F(","));
   Serial.print(CH.R_ankle); Serial.print(F(","));
-  Serial.print(CH.R_foot);
-  Serial.println(F(" (PCA ports 0,1,3,4,5)"));
-  Serial.print(F("  Left leg:  Channels "));
+  Serial.println(CH.R_foot);
+  Serial.print(F("  Left leg:  Ports "));
   Serial.print(CH.L_hipX); Serial.print(F(","));
   Serial.print(CH.L_hipY); Serial.print(F(","));
   Serial.print(CH.L_knee); Serial.print(F(","));
   Serial.print(CH.L_ankle); Serial.print(F(","));
-  Serial.print(CH.L_foot);
-  Serial.println(F(" (PCA ports 6,7,8,9 + GPIO6)"));
+  Serial.println(CH.L_foot);
 }
 
 // ========== Locomotion Commands ==========
