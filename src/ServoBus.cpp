@@ -67,7 +67,27 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
 
   // Initialize PCA9685
   _pca9685 = Adafruit_PWMServoDriver(_i2cAddr, Wire);
+
+  // Check if PCA9685 responds
+  Serial.print(F("[ServoBus] PCA9685: Calling begin()... "));
   _pca9685.begin();
+
+  // Verify I2C communication by reading MODE1 register
+  Wire.beginTransmission(_i2cAddr);
+  uint8_t i2c_error = Wire.endTransmission();
+
+  if (i2c_error != 0) {
+    Serial.println(F("FAILED!"));
+    Serial.print(F("[ServoBus] ERROR: PCA9685 not responding on I2C address 0x"));
+    Serial.print(_i2cAddr, HEX);
+    Serial.print(F(" (I2C error code: "));
+    Serial.print(i2c_error);
+    Serial.println(F(")"));
+    Serial.println(F("[ServoBus] Check: 1) Wiring  2) V+ power  3) I2C address jumpers"));
+    return false;
+  }
+
+  Serial.println(F("SUCCESS!"));
   _pca9685.setPWMFreq(freq_hz);
   delay(50);
 
@@ -175,8 +195,18 @@ uint16_t ServoBus::_degToUs(uint8_t ch, float deg) const {
 }
 
 void ServoBus::writeMicroseconds(uint8_t channel, uint16_t us) {
-  if (channel >= SERVO_COUNT) return;
-  if (!_attached[channel]) return;
+  if (channel >= SERVO_COUNT) {
+    Serial.print(F("[ServoBus] ERROR: writeMicroseconds() channel out of range: "));
+    Serial.println(channel);
+    return;
+  }
+
+  if (!_attached[channel]) {
+    Serial.print(F("[ServoBus] WARNING: writeMicroseconds() ch="));
+    Serial.print(channel);
+    Serial.println(F(" - NOT ATTACHED (write blocked)"));
+    return;
+  }
 
   const ServoLimits& lim = _limits[channel];
   uint16_t clamped = _clampU16(us, lim.minPulse, lim.maxPulse);
@@ -192,6 +222,21 @@ void ServoBus::writeMicroseconds(uint8_t channel, uint16_t us) {
     // Formula: pwm = (microseconds * 4096 * frequency) / 1,000,000
     uint32_t pwm = (uint32_t)((clamped * 4096.0 * _freq) / 1000000.0);
     pwm = (pwm > 4095) ? 4095 : pwm;  // Clamp to 12-bit max
+
+    // Debug output (only print first write to each channel to reduce spam)
+    static bool _firstWrite[SERVO_COUNT] = {false};
+    if (!_firstWrite[channel]) {
+      Serial.print(F("[ServoBus] PCA9685: First write to ch="));
+      Serial.print(channel);
+      Serial.print(F(" port="));
+      Serial.print(pcaPort);
+      Serial.print(F(" us="));
+      Serial.print(clamped);
+      Serial.print(F(" pwm="));
+      Serial.println(pwm);
+      _firstWrite[channel] = true;
+    }
+
     _pca9685.setPWM(pcaPort, 0, pwm);
   }
 }

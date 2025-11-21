@@ -143,6 +143,7 @@ void begin(ServoBus* bus, const Map& map) {
   }
 
   // Attach all leg servos to PCA9685 with limits
+  Serial.println(F("[Leg] Attaching servos..."));
   SB->attach(CH.R_hipX,  LIM_HIP_X);
   SB->attach(CH.R_hipY,  LIM_HIP_Y);
   SB->attach(CH.R_knee,  LIM_KNEE);
@@ -154,8 +155,10 @@ void begin(ServoBus* bus, const Map& map) {
   SB->attach(CH.L_knee,  LIM_KNEE);
   SB->attach(CH.L_ankle, LIM_ANKLE);
   SB->attach(CH.L_foot,  LIM_FOOT);
+  Serial.println(F("[Leg] All servos attached"));
 
   // Move to neutral stance
+  Serial.println(F("[Leg] Moving to neutral stance..."));
   SB->writeDegrees(CH.R_hipX,  NEUTRAL_HIP_X);
   SB->writeDegrees(CH.R_hipY,  NEUTRAL_HIP_Y);
   SB->writeDegrees(CH.R_knee,  NEUTRAL_KNEE);
@@ -167,6 +170,7 @@ void begin(ServoBus* bus, const Map& map) {
   SB->writeDegrees(CH.L_knee,  NEUTRAL_KNEE);
   SB->writeDegrees(CH.L_ankle, NEUTRAL_ANKLE);
   SB->writeDegrees(CH.L_foot,  NEUTRAL_FOOT);
+  Serial.println(F("[Leg] Neutral stance complete"));
 
   // Initialize gait state
   g_mode  = IDLE;
