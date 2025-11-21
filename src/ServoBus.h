@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include <ESP32Servo.h>
+#include <Adafruit_PWMServoDriver.h>
 
 #include <Adafruit_PWMServoDriver.h>
 
@@ -205,6 +206,7 @@ private:
   bool        _attached[SERVO_COUNT] = { false };
 
   float       _freq = 50.0f;
+  uint8_t     _i2cAddr = PCA9685_I2C_ADDRESS;
 
   uint8_t     _i2cAddr = PCA9685_I2C_ADDRESS;
 
