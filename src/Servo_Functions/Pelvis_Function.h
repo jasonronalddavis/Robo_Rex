@@ -6,7 +6,7 @@ namespace Pelvis {
 
 // ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t roll = 4;   // PCA9685 channel 2 - pelvis roll/level control
+  uint8_t roll = 7;   // PCA9685 channel 2 - pelvis roll/level control
 };
 
 // ========== Initialization ==========

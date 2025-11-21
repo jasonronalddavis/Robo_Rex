@@ -6,7 +6,7 @@ namespace Tail {
 
 // ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t wag = 5;   // PCA9685 channel 5 - tail yaw (left/right wag)
+  uint8_t wag = 6;   // PCA9685 channel 5 - tail yaw (left/right wag)
 };
 
 // ========== Initialization ==========

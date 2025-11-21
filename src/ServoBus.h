@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include <ESP32Servo.h>
+#include <Adafruit_PWMServoDriver.h>
 
 #include <Adafruit_PWMServoDriver.h>
 
@@ -76,7 +77,7 @@
 
 #ifndef PCA9685_SDA_PIN
 
-#define PCA9685_SDA_PIN 10
+#define PCA9685_SDA_PIN 4
 
 #endif
 
@@ -84,7 +85,7 @@
 
 #ifndef PCA9685_SCL_PIN
 
-#define PCA9685_SCL_PIN 11
+#define PCA9685_SCL_PIN 5
 
 #endif
 
@@ -205,10 +206,7 @@ private:
   bool        _attached[SERVO_COUNT] = { false };
 
   float       _freq = 50.0f;
-
   uint8_t     _i2cAddr = PCA9685_I2C_ADDRESS;
-
- 
 
   // Helpers
 
@@ -243,5 +241,3 @@ private:
   }
 
 };
-
- 

@@ -1,4 +1,5 @@
 #include "ServoBus.h"
+#include <Wire.h>
 
 #include <Wire.h>
 
@@ -57,6 +58,11 @@ uint8_t ServoBus::_channelToPcaPort(uint8_t channel) const {
 bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
 
   _freq = freq_hz;
+  _i2cAddr = i2c_addr;
+
+  Serial.println(F("[ServoBus] Initializing HYBRID servo system"));
+  Serial.println(F("  Channels 0-5:  ESP32 GPIO direct control"));
+  Serial.println(F("  Channels 6-15: PCA9685 I2C PWM driver"));
 
   _i2cAddr = i2c_addr;
 
@@ -154,6 +160,52 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
 
   Serial.println(F("[ServoBus] ✓ Hybrid servo system ready"));
 
+  Serial.println(F("[ServoBus] GPIO: Allocated 2 LEDC timers for channels 0-5"));
+
+  // ========== PCA9685 I2C Setup (Channels 6-15) ==========
+  // Initialize I2C bus for PCA9685
+  Wire.begin(PCA9685_SDA_PIN, PCA9685_SCL_PIN);
+  Wire.setClock(100000);  // 100kHz for PCA9685 (standard I2C speed)
+  delay(50);
+
+  Serial.print(F("[ServoBus] PCA9685: Initializing on Wire (SDA="));
+  Serial.print(PCA9685_SDA_PIN);
+  Serial.print(F(", SCL="));
+  Serial.print(PCA9685_SCL_PIN);
+  Serial.print(F(") @ 0x"));
+  Serial.println(_i2cAddr, HEX);
+
+  // Initialize PCA9685
+  _pca9685 = Adafruit_PWMServoDriver(_i2cAddr, Wire);
+
+  // Check if PCA9685 responds
+  Serial.print(F("[ServoBus] PCA9685: Calling begin()... "));
+  _pca9685.begin();
+
+  // Verify I2C communication by reading MODE1 register
+  Wire.beginTransmission(_i2cAddr);
+  uint8_t i2c_error = Wire.endTransmission();
+
+  if (i2c_error != 0) {
+    Serial.println(F("FAILED!"));
+    Serial.print(F("[ServoBus] ERROR: PCA9685 not responding on I2C address 0x"));
+    Serial.print(_i2cAddr, HEX);
+    Serial.print(F(" (I2C error code: "));
+    Serial.print(i2c_error);
+    Serial.println(F(")"));
+    Serial.println(F("[ServoBus] Check: 1) Wiring  2) V+ power  3) I2C address jumpers"));
+    return false;
+  }
+
+  Serial.println(F("SUCCESS!"));
+  _pca9685.setPWMFreq(freq_hz);
+  delay(50);
+
+  Serial.print(F("[ServoBus] PCA9685: Initialized at "));
+  Serial.print(freq_hz);
+  Serial.println(F(" Hz"));
+
+  Serial.println(F("[ServoBus] ✓ Hybrid servo system ready"));
   return true;
 
 }
