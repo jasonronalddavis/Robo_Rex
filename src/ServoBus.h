@@ -15,15 +15,24 @@
 // ========== GPIO Pin Definitions (Channels 0-5) ==========
 
 // NOTE: GPIO 8 and 9 are reserved for IMU (Wire1)
-// NOTE: GPIO 4 and 5 are reserved for PCA9685 I2C (SDA/SCL)
+
+// NOTE: GPIO 10 and 11 are reserved for PCA9685 (Wire)
+
+ 
 
 // Body servo channels (0-5) - Direct GPIO control
-#define SERVO_CH0_PIN   1   // Neck Yaw
-#define SERVO_CH1_PIN   2   // Head Jaw
-#define SERVO_CH2_PIN   3   // Head Pitch
-#define SERVO_CH3_PIN   10  // Pelvis Roll (was 4, conflicts with PCA9685 SDA!)
-#define SERVO_CH4_PIN   11  // Spine Yaw (was 5, conflicts with PCA9685 SCL!)
-#define SERVO_CH5_PIN   6   // Tail Wag
+
+#define SERVO_CH0_PIN   1   // Head Jaw
+
+#define SERVO_CH1_PIN   2   // Head Pitch
+
+#define SERVO_CH2_PIN   3   // Pelvis Roll
+
+#define SERVO_CH3_PIN   4   // Spine Yaw
+
+#define SERVO_CH4_PIN   5   // Tail Wag
+
+#define SERVO_CH5_PIN   6   // Left Foot (leg servo)
 
  
 

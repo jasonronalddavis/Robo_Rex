@@ -4,12 +4,12 @@
 // Map logical channels 0-5 to GPIO pins
 uint8_t ServoBus::_channelToGpioPin(uint8_t channel) const {
   static const uint8_t kPins[PCA9685_FIRST_CHANNEL] = {
-    SERVO_CH0_PIN,  // ch 0 -> GPIO 1
-    SERVO_CH1_PIN,  // ch 1 -> GPIO 2
-    SERVO_CH2_PIN,  // ch 2 -> GPIO 3
-    SERVO_CH3_PIN,  // ch 3 -> GPIO 10
-    SERVO_CH4_PIN,  // ch 4 -> GPIO 11
-    SERVO_CH5_PIN   // ch 5 -> GPIO 6
+    SERVO_CH0_PIN,  // ch 0
+    SERVO_CH1_PIN,  // ch 1
+    SERVO_CH2_PIN,  // ch 2
+    SERVO_CH3_PIN,  // ch 3
+    SERVO_CH4_PIN,  // ch 4
+    SERVO_CH5_PIN   // ch 5
   };
 
   if (channel >= PCA9685_FIRST_CHANNEL) {
@@ -108,10 +108,7 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
 
 void ServoBus::setFrequency(float freq_hz) {
   _freq = freq_hz;
-
-  // Only update PCA9685 frequency (GPIO servos are fixed at 50Hz)
   _pca9685.setPWMFreq(freq_hz);
-
   Serial.print(F("[ServoBus] PCA9685 frequency set to "));
   Serial.print(freq_hz);
   Serial.println(F(" Hz"));
@@ -194,10 +191,8 @@ uint16_t ServoBus::_degToUs(uint8_t ch, float deg) const {
   if (ch >= SERVO_COUNT) return 1500;
 
   const ServoLimits& lim = _limits[ch];
-  // Clamp degrees into allowed range
   float d = _clampF(deg, lim.minDeg, lim.maxDeg);
 
-  // Map [minDeg, maxDeg] → [minPulse, maxPulse]
   float t = (d - lim.minDeg) / (lim.maxDeg - lim.minDeg);
   int32_t us = (int32_t)(lim.minPulse + t * (lim.maxPulse - lim.minPulse));
   return _clampU16(us, lim.minPulse, lim.maxPulse);
@@ -216,11 +211,8 @@ void ServoBus::writeMicroseconds(uint8_t channel, uint16_t us) {
   } else {
     // ========== PCA9685 Servo ==========
     uint8_t pcaPort = _channelToPcaPort(channel);
-    // Convert microseconds to 12-bit PWM value
-    // PCA9685 uses 12-bit resolution (0-4095) at the set frequency
-    // Formula: pwm = (microseconds * 4096 * frequency) / 1,000,000
     uint32_t pwm = (uint32_t)((clamped * 4096.0 * _freq) / 1000000.0);
-    pwm = (pwm > 4095) ? 4095 : pwm;  // Clamp to 12-bit max
+    pwm = (pwm > 4095) ? 4095 : pwm;
     _pca9685.setPWM(pcaPort, 0, pwm);
   }
 }

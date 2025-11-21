@@ -6,7 +6,7 @@ namespace Neck {
 
 // ========== Pin Mapping Structure ==========
 struct Map {
-  uint8_t yaw = 8;   // Channel 8 -> PCA9685 port 2 (TEST configuration)
+  uint8_t yaw = 1;   // PCA9685 channel 0 - neck left/right turn
 };
 
 // ========== Initialization ==========
