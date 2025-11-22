@@ -64,11 +64,14 @@ static inline void sweepAllTick() {
   }
 
   static float lastPrintPos = 0;
-  if (abs(g_sweep.posDeg - lastPrintPos) >= 10.0f) {
+  static bool firstRun = true;
+  if (firstRun || abs(g_sweep.posDeg - lastPrintPos) >= 10.0f) {
     Serial.print(F("[SWEEP] Position: "));
     Serial.print(g_sweep.posDeg);
-    Serial.println(F("°"));
+    Serial.print(F("° → Writing to all 16 channels"));
+    Serial.println();
     lastPrintPos = g_sweep.posDeg;
+    firstRun = false;
   }
 
   g_sweep.posDeg += g_sweep.dir * g_sweep.stepDeg;
@@ -381,7 +384,14 @@ void setup() {
   Leg::begin(&servoBus, legMap);
 
   Serial.println(F("[Servos] ✓ All 16 servos initialized"));
-  
+
+  // Explicitly attach all servos for sweep test
+  Serial.println(F("\n[Attach] Attaching all 16 servo channels..."));
+  for (uint8_t ch = 0; ch < 16; ch++) {
+    servoBus.attach(ch);  // Attach with default limits
+  }
+  Serial.println(F("[Attach] ✓ All channels attached"));
+
   if (g_sweep.enabled) {
     Serial.println();
     Serial.println(F("╔════════════════════════════════════════════╗"));

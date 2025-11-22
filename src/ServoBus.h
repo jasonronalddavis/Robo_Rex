@@ -14,9 +14,9 @@
 
 // ========== GPIO Pin Definitions (Channels 0-5) ==========
 
-// NOTE: GPIO 10 and 11 are reserved for PCA9685 (Wire)
+// NOTE: GPIO 4 and 5 are reserved for PCA9685 (Wire)
 
- 
+
 
 // Body servo channels (0-5) - Direct GPIO control
 
@@ -26,9 +26,9 @@
 
 #define SERVO_CH2_PIN   3   // Head Pitch
 
-#define SERVO_CH3_PIN   4   // Pelvis Roll
+#define SERVO_CH3_PIN   7   // Pelvis Roll
 
-#define SERVO_CH4_PIN   5   // Spine Yaw
+#define SERVO_CH4_PIN   10  // Spine Yaw
 
 #define SERVO_CH5_PIN   6   // Tail Wag
 
@@ -74,7 +74,7 @@
 
 #endif
 
- 
+
 
 #ifndef PCA9685_SCL_PIN
 
