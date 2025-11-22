@@ -319,8 +319,20 @@ static void setupBLE() {
 // ========== Arduino Setup ==========
 void setup() {
   Serial.begin(115200);
-  delay(500);
-  
+
+  // ESP32-S3 USB CDC requires initialization delay
+  #if ARDUINO_USB_CDC_ON_BOOT
+    delay(2000);  // Wait for USB CDC to be ready
+  #else
+    delay(500);
+  #endif
+
+  // Test serial output
+  Serial.println();
+  Serial.println("*** SERIAL INITIALIZED ***");
+  Serial.flush();
+  delay(100);
+
   Serial.println();
   Serial.println(F("============================================"));
   Serial.println(F("    ROBO REX - 16 SERVO HYBRID MODE"));
