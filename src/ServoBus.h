@@ -70,15 +70,15 @@
 
 #ifndef PCA9685_SDA_PIN
 
-#define PCA9685_SDA_PIN 4
+#define PCA9685_SDA_PIN 10
 
 #endif
 
- 
+
 
 #ifndef PCA9685_SCL_PIN
 
-#define PCA9685_SCL_PIN 5
+#define PCA9685_SCL_PIN 11
 
 #endif
 
