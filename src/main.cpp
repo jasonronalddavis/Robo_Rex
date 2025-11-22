@@ -68,22 +68,21 @@ static inline void sweepAllTick() {
   if (firstRun || abs(g_sweep.posDeg - lastPrintPos) >= 10.0f) {
     Serial.print(F("[SWEEP] Position: "));
     Serial.print(g_sweep.posDeg);
-    Serial.print(F("° → Writing to all 16 channels"));
-    Serial.println();
+    Serial.println(F(" deg - Writing to all 16 channels"));
     lastPrintPos = g_sweep.posDeg;
     firstRun = false;
   }
 
   g_sweep.posDeg += g_sweep.dir * g_sweep.stepDeg;
-  if (g_sweep.posDeg >= g_sweep.maxDeg) { 
-    g_sweep.posDeg = g_sweep.maxDeg; 
+  if (g_sweep.posDeg >= g_sweep.maxDeg) {
+    g_sweep.posDeg = g_sweep.maxDeg;
     g_sweep.dir = -1;
-    Serial.println(F("[SWEEP] ⟲ Reversing direction (max reached)"));
+    Serial.println(F("[SWEEP] Reversing direction (max reached)"));
   }
-  if (g_sweep.posDeg <= g_sweep.minDeg) { 
-    g_sweep.posDeg = g_sweep.minDeg; 
+  if (g_sweep.posDeg <= g_sweep.minDeg) {
+    g_sweep.posDeg = g_sweep.minDeg;
     g_sweep.dir = +1;
-    Serial.println(F("[SWEEP] ⟳ Reversing direction (min reached)"));
+    Serial.println(F("[SWEEP] Reversing direction (min reached)"));
   }
 }
 
@@ -212,12 +211,12 @@ static void handleCommand(const String& line) {
     g_sweep.enabled = true;
     g_sweep.posDeg = g_sweep.minDeg;
     g_sweep.dir = +1;
-    Serial.println(F("[CMD] ✓ Sweep test ENABLED"));
+    Serial.println(F("[CMD] Sweep test ENABLED"));
     txNotify("Sweep test ON\n");
   }
   else if (line == "SWEEP_OFF") {
     g_sweep.enabled = false;
-    Serial.println(F("[CMD] ✓ Sweep test DISABLED"));
+    Serial.println(F("[CMD] Sweep test DISABLED"));
     txNotify("Sweep test OFF\n");
   }
   else if (line == "STATUS") {
@@ -227,7 +226,7 @@ static void handleCommand(const String& line) {
     if (g_sweep.enabled) {
       Serial.print(F("  Sweep position: "));
       Serial.print(g_sweep.posDeg);
-      Serial.println(F("°"));
+      Serial.println(F(" deg"));
     }
     Serial.print(F("  Leg mode: "));
     Serial.println(Leg::mode());
@@ -251,7 +250,7 @@ static void handleCommand(const String& line) {
     txNotify("Help sent to serial\n");
   }
   else {
-    Serial.print(F("[CMD] ✗ Unknown: "));
+    Serial.print(F("[CMD] Unknown: "));
     Serial.println(line);
     txNotify("Unknown command\n");
   }
@@ -278,12 +277,12 @@ class RxCallbacks : public NimBLECharacteristicCallbacks {
 };
 
 class ServerCallbacks : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer*) override { 
-    Serial.println(F("[BLE] ✓ Client connected")); 
+  void onConnect(NimBLEServer*) override {
+    Serial.println(F("[BLE] Client connected"));
     txNotify("Connected to Robo_Rex\n");
   }
-  void onDisconnect(NimBLEServer*) override { 
-    Serial.println(F("[BLE] ✗ Client disconnected")); 
+  void onDisconnect(NimBLEServer*) override {
+    Serial.println(F("[BLE] Client disconnected"));
     NimBLEDevice::startAdvertising(); 
   }
 };
@@ -314,7 +313,7 @@ static void setupBLE() {
   adv->setScanResponse(true);
   adv->start();
 
-  Serial.println(F("[BLE] ✓ Advertising as 'Robo_Rex_GPIO'"));
+  Serial.println(F("[BLE] Advertising as 'Robo_Rex_GPIO'"));
 }
 
 // ========== Arduino Setup ==========
@@ -323,18 +322,16 @@ void setup() {
   delay(500);
   
   Serial.println();
-  Serial.println(F("╔════════════════════════════════════════════╗"));
-  Serial.println(F("║                                            ║"));
-  Serial.println(F("║    ROBO REX - 16 SERVO HYBRID MODE         ║"));
-  Serial.println(F("║   GPIO (0-5) + PCA9685 (6-15)              ║"));
-  Serial.println(F("║                                            ║"));
-  Serial.println(F("╚════════════════════════════════════════════╝"));
+  Serial.println(F("============================================"));
+  Serial.println(F("    ROBO REX - 16 SERVO HYBRID MODE"));
+  Serial.println(F("   GPIO (0-5) + PCA9685 (6-15)"));
+  Serial.println(F("============================================"));
   Serial.println();
-  
+
   // Initialize hybrid servo system (GPIO + PCA9685)
   Serial.println(F("[Hybrid] Initializing servo system..."));
   servoBus.begin();
-  Serial.println(F("[Hybrid] ✓ Ready"));
+  Serial.println(F("[Hybrid] Ready"));
 
   // Initialize servo functions
   Serial.println(F("\n[Servos] Initializing 16 servos..."));
@@ -383,36 +380,37 @@ void setup() {
   legMap.L_foot  = 15;  // channel 15 -> PCA9685 port 9
   Leg::begin(&servoBus, legMap);
 
-  Serial.println(F("[Servos] ✓ All 16 servos initialized"));
+  Serial.println(F("[Servos] All 16 servos initialized"));
 
   // Explicitly attach all servos for sweep test
   Serial.println(F("\n[Attach] Attaching all 16 servo channels..."));
   for (uint8_t ch = 0; ch < 16; ch++) {
     servoBus.attach(ch);  // Attach with default limits
   }
-  Serial.println(F("[Attach] ✓ All channels attached"));
+  Serial.println(F("[Attach] All channels attached"));
 
   if (g_sweep.enabled) {
     Serial.println();
-    Serial.println(F("╔════════════════════════════════════════════╗"));
-    Serial.println(F("║  ⚠️  SWEEP TEST MODE ENABLED  ⚠️           ║"));
-    Serial.println(F("║                                            ║"));
-    Serial.println(F("║  All servos will sweep 10° - 170°         ║"));
-    Serial.println(F("║  Send 'SWEEP_OFF' to disable              ║"));
-    Serial.println(F("╚════════════════════════════════════════════╝"));
+    Serial.println(F("============================================"));
+    Serial.println(F("  WARNING: SWEEP TEST MODE ENABLED"));
+    Serial.println(F("  All servos will sweep 10-170 degrees"));
+    Serial.println(F("  Send 'SWEEP_OFF' to disable"));
+    Serial.println(F("============================================"));
   }
   
   // Initialize BLE
   setupBLE();
   
   // Ready!
-  Serial.println(F("\n╔════════════════════════════════════════════╗"));
-  Serial.println(F("║           SYSTEM READY                     ║"));
-  Serial.println(F("╚════════════════════════════════════════════╝"));
-  Serial.println(F("\nHybrid servo control mode active"));
+  Serial.println();
+  Serial.println(F("============================================"));
+  Serial.println(F("           SYSTEM READY"));
+  Serial.println(F("============================================"));
+  Serial.println(F("Hybrid servo control mode active"));
   Serial.println(F("  GPIO: 6 servos (channels 0-5)"));
   Serial.println(F("  PCA9685: 10 servos (channels 6-15)"));
-  Serial.println(F("Type HELP for command list\n"));
+  Serial.println(F("Type HELP for command list"));
+  Serial.println();
   
   txNotify("Robo_Rex Ready!\n");
 }
