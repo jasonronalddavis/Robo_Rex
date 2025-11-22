@@ -194,9 +194,9 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
 
   Serial.println(F(" Hz"));
 
- 
 
-  Serial.println(F("[ServoBus] ✓ Hybrid servo system ready"));
+
+  Serial.println(F("[ServoBus] Hybrid servo system ready"));
 
   return true;
 
@@ -384,9 +384,9 @@ uint16_t ServoBus::_degToUs(uint8_t ch, float deg) const {
 
   float d = _clampF(deg, lim.minDeg, lim.maxDeg);
 
- 
 
-  // Map [minDeg, maxDeg] → [minPulse, maxPulse]
+
+  // Map [minDeg, maxDeg] to [minPulse, maxPulse]
 
   float t = (d - lim.minDeg) / (lim.maxDeg - lim.minDeg);
 
