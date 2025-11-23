@@ -173,6 +173,7 @@ public:
   }
 
   inline float frequency() const { return _freq; }
+  inline bool  isPcaPresent() const { return _pcaPresent; }
 
  
 
@@ -196,6 +197,7 @@ private:
 
   ServoLimits _limits[SERVO_COUNT];
   bool        _attached[SERVO_COUNT] = { false };
+  bool        _pcaPresent = false;
   float       _freq = 50.0f;
   uint8_t     _i2cAddr = PCA9685_I2C_ADDRESS;
 

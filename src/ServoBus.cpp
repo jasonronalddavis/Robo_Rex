@@ -64,7 +64,7 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
 
   _i2cAddr = i2c_addr;
 
- 
+  _pcaPresent = false;
 
   Serial.println(F("[ServoBus] Initializing HYBRID servo system"));
 
@@ -179,6 +179,8 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
 
     Serial.println(F("[ServoBus] Check: 1) Wiring  2) V+ power  3) I2C address jumpers"));
 
+    _pcaPresent = false;
+
     return false;
 
   }
@@ -186,6 +188,8 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
  
 
   Serial.println(F("SUCCESS!"));
+
+  _pcaPresent = true;
 
   _pca9685.setPWMFreq(freq_hz);
 
@@ -198,6 +202,12 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
   Serial.print(freq_hz);
 
   Serial.println(F(" Hz"));
+
+
+
+  Serial.print(F("[ServoBus] PCA9685 detected: "));
+
+  Serial.println(_pcaPresent ? F("YES") : F("NO"));
 
 
 
@@ -302,6 +312,18 @@ void ServoBus::attach(uint8_t channel, const ServoLimits& limits) {
   } else {
 
     // ========== PCA9685 Servo (Channels 6-15) ==========
+
+    if (!_pcaPresent) {
+
+      Serial.print(F("[ServoBus] ERROR: PCA9685 not detected, cannot attach ch="));
+
+      Serial.println(channel);
+
+      _attached[channel] = false;
+
+      return;
+
+    }
 
     uint8_t pcaPort = _channelToPcaPort(channel);
 

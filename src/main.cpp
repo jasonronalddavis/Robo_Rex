@@ -19,7 +19,7 @@ static ServoBus servoBus;  // ESP32 GPIO servo controller
 static String g_cmdBuffer;   // Serial command buffer
 
 // ========== Sweep Test Configuration ==========
-#define ENABLE_SWEEP_TEST true
+#define ENABLE_SWEEP_TEST false
 
 struct Sweeper {
   bool     enabled     = ENABLE_SWEEP_TEST;
@@ -49,26 +49,14 @@ static inline void sweepAllTick() {
     servoBus.writeDegrees(ch, g_sweep.posDeg);
   }
 
-  static float lastPrintPos = 0;
-  static bool firstRun = true;
-  if (firstRun || abs(g_sweep.posDeg - lastPrintPos) >= 10.0f) {
-    Serial.print(F("[SWEEP] Position: "));
-    Serial.print(g_sweep.posDeg);
-    Serial.println(F(" deg - Writing to all 16 channels"));
-    lastPrintPos = g_sweep.posDeg;
-    firstRun = false;
-  }
-
   g_sweep.posDeg += g_sweep.dir * g_sweep.stepDeg;
   if (g_sweep.posDeg >= g_sweep.maxDeg) {
     g_sweep.posDeg = g_sweep.maxDeg;
     g_sweep.dir = -1;
-    Serial.println(F("[SWEEP] Reversing direction (max reached)"));
   }
   if (g_sweep.posDeg <= g_sweep.minDeg) {
     g_sweep.posDeg = g_sweep.minDeg;
     g_sweep.dir = +1;
-    Serial.println(F("[SWEEP] Reversing direction (min reached)"));
   }
 }
 
@@ -238,8 +226,13 @@ void setup() {
 
   // Initialize hybrid servo system (GPIO + PCA9685)
   Serial.println(F("[Hybrid] Initializing servo system..."));
-  servoBus.begin();
+  bool beginOk = servoBus.begin();
   Serial.println(F("[Hybrid] Ready"));
+  Serial.print(F("[Hybrid] PCA9685 detected: "));
+  Serial.println(servoBus.isPcaPresent() ? F("YES") : F("NO"));
+  if (!beginOk) {
+    Serial.println(F("[Hybrid] WARNING: ServoBus initialization reported an error; check PCA9685 wiring"));
+  }
 
   // Initialize servo functions
   Serial.println(F("\n[Servos] Initializing 16 servos..."));
@@ -295,7 +288,30 @@ void setup() {
   for (uint8_t ch = 0; ch < 16; ch++) {
     servoBus.attach(ch);  // Attach with default limits
   }
-  Serial.println(F("[Attach] All channels attached"));
+
+  uint8_t gpioAttached = 0;
+  uint8_t pcaAttached  = 0;
+  for (uint8_t ch = 0; ch < 16; ch++) {
+    if (servoBus.isAttached(ch)) {
+      if (ch < 6) {
+        ++gpioAttached;
+      } else {
+        ++pcaAttached;
+      }
+    }
+  }
+
+  Serial.print(F("[Attach] GPIO channels attached: "));
+  Serial.print(gpioAttached);
+  Serial.println(F(" / 6"));
+
+  Serial.print(F("[Attach] PCA9685 channels attached: "));
+  Serial.print(pcaAttached);
+  Serial.println(F(" / 10"));
+
+  if (!servoBus.isPcaPresent()) {
+    Serial.println(F("[Attach] WARNING: PCA9685 missing - channels 6-15 will stay detached"));
+  }
 
   if (g_sweep.enabled) {
     Serial.println();
