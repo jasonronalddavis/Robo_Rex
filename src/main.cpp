@@ -16,6 +16,7 @@
 
 // ========== Global Variables ==========
 static ServoBus servoBus;  // ESP32 GPIO servo controller
+static String g_cmdBuffer;   // Serial command buffer
 
 // ========== Sweep Test Configuration ==========
 #define ENABLE_SWEEP_TEST true
@@ -308,11 +309,29 @@ void setup() {
 
 // ========== Arduino Loop ==========
 void loop() {
+  // Handle serial commands
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\r') continue;  // Ignore carriage return
+    if (c != '\n') {
+      g_cmdBuffer += c;
+    } else {
+      // Process complete line
+      String line = g_cmdBuffer;
+      line.trim();
+      g_cmdBuffer = "";
+      if (line.length() > 0) {
+        handleCommand(line);
+      }
+    }
+  }
+
+  // Run sweep test or leg control
   if (g_sweep.enabled) {
     sweepAllTick();
   } else {
     Leg::tick();
   }
-  
+
   delay(20);  // 50 Hz update rate
 }
