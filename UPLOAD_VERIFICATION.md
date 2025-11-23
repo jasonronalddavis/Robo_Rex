@@ -139,7 +139,7 @@ PlatformIO will throw this when the selected environment doesn't match the USB p
    ls /dev/cu.*
    ```
 
-   - **OTG/native USB-CDC (``freenove_esp32_s3_otg`` env):** Expect `/dev/cu.usbmodem*` on macOS (or `/dev/ttyACM*` on Linux). This is now the default because your latest working uploads/monitor output came from this port.
+   - **OTG/native USB-CDC (``freenove_esp32_s3_otg`` env):** Expect `/dev/cu.usbmodem*` on macOS (or `/dev/ttyACM*` on Linux).
    - **CH34x UART bridge (``freenove_esp32_s3_uart`` env):** Expect `/dev/cu.wchusbserial*` on macOS (or `/dev/ttyUSB*` on Linux).
 
 3. **Run upload with the matching environment and port**
@@ -152,11 +152,5 @@ PlatformIO will throw this when the selected environment doesn't match the USB p
    ```
 
 4. **If the port name keeps changing** (some macOS systems): rerun `ls /dev/cu.*` each time to grab the new path before uploading.
-
-5. **If VS Code keeps invoking the wrong environment** (e.g., `freenove_esp32_s3_uart` while your port is `/dev/cu.usbmodem*`), edit `platformio.ini` and set:
-   ```ini
-   default_envs = freenove_esp32_s3_otg
-   ```
-   If you truly are on the CH34x port instead, swap that line to `freenove_esp32_s3_uart` so the flags and port expectations match the USB path you are using.
 
 If you still see the error after matching env + port and closing all monitors, unplug/replug the USB cable and retry.
