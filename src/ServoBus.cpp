@@ -98,15 +98,20 @@ bool ServoBus::begin(uint8_t i2c_addr, float freq_hz) {
 
   // ========== ESP32 GPIO Setup (Channels 0-5) ==========
 
-  // Allocate LEDC timers for GPIO servos (6 servos = need 2 timers)
+  // Allocate all 4 LEDC timers at startup so later attach() calls never fail with
+  // "All PWM timers allocated" when requesting the standard 50 Hz frequency.
+  // (The Servo library will re-use these timers for the six GPIO channels.)
 
   ESP32PWM::allocateTimer(0);  // LEDC channels 0-3
 
   ESP32PWM::allocateTimer(1);  // LEDC channels 4-7
 
- 
+  ESP32PWM::allocateTimer(2);
 
-  Serial.println(F("[ServoBus] GPIO: Allocated 2 LEDC timers for channels 0-5"));
+  ESP32PWM::allocateTimer(3);
+
+
+  Serial.println(F("[ServoBus] GPIO: Reserved all 4 LEDC timers for channels 0-5"));
 
  
 
