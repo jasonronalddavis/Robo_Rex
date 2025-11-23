@@ -81,6 +81,10 @@ This mirrors the Reddit guidance: test the bare board on the OTG port first, the
 - Requires `-DARDUINO_USB_CDC_ON_BOOT=1` flag (already added ✅)
 - No external USB-UART chip
 
+**Quick environment sanity check** (matches the port names you see):
+- If macOS shows `/dev/cu.usbmodem*`, use `-e freenove_esp32_s3_otg` (or set `default_envs` to that).
+- If macOS shows `/dev/cu.wchusbserial*`, use `-e freenove_esp32_s3_uart` (and set `default_envs` accordingly).
+
 **Check in Device Manager (Windows) or `ls /dev/tty*` (Linux/Mac)**:
 - Should show as "USB JTAG/serial debug unit" or similar
 - NOT "CP210x" or "CH340" (those are external UART chips)
