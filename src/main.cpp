@@ -215,9 +215,20 @@ static void handleCommand(const String& line) {
 
 // ========== Arduino Setup ==========
 void setup() {
+  // Setup onboard LED for visual feedback (GPIO 48 on Freenove S3)
+  pinMode(48, OUTPUT);
+  digitalWrite(48, HIGH);  // LED ON to show power
+
+  // Initialize serial with longer delay for ESP32-S3 + CH340
   Serial.begin(115200);
-  delay(500);
-  
+  delay(2000);  // Increased delay for CH340 stability
+
+  // Wait for serial connection (with timeout)
+  unsigned long startWait = millis();
+  while (!Serial && (millis() - startWait < 3000)) {
+    delay(10);
+  }
+
   Serial.println();
   Serial.println(F("============================================"));
   Serial.println(F("    ROBO REX - 16 SERVO HYBRID MODE"));
