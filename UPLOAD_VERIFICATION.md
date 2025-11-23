@@ -153,10 +153,4 @@ PlatformIO will throw this when the selected environment doesn't match the USB p
 
 4. **If the port name keeps changing** (some macOS systems): rerun `ls /dev/cu.*` each time to grab the new path before uploading.
 
-5. **If VS Code keeps invoking the wrong environment** (e.g., `freenove_esp32_s3_otg` while your port is `/dev/cu.wchusbserial*`), edit `platformio.ini` and set:
-   ```ini
-   default_envs = freenove_esp32_s3_uart
-   ```
-   Then retry the upload so the flags and port expectations match your CH34x connection.
-
 If you still see the error after matching env + port and closing all monitors, unplug/replug the USB cable and retry.
