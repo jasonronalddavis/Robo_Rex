@@ -123,3 +123,40 @@ pio run -t upload
 ```
 
 This forces a completely clean slate.
+
+---
+
+## "Port is busy or doesn't exist" (most common upload failure)
+
+PlatformIO will throw this when the selected environment doesn't match the USB port you are actually using, or when another program still has the port open.
+
+1. **Close anything that might be holding the port**
+   - Quit Serial Monitor / screen / minicom / Arduino IDE
+   - If using VS Code, close the built-in serial monitor tab
+
+2. **Confirm which device node appears after plugging in**
+   ```bash
+   ls /dev/cu.*
+   ```
+
+   - **OTG/native USB-CDC (``freenove_esp32_s3_otg`` env):** Expect `/dev/cu.usbmodem*` on macOS (or `/dev/ttyACM*` on Linux). This is now the default because your latest working uploads/monitor output came from this port.
+   - **CH34x UART bridge (``freenove_esp32_s3_uart`` env):** Expect `/dev/cu.wchusbserial*` on macOS (or `/dev/ttyUSB*` on Linux).
+
+3. **Run upload with the matching environment and port**
+   ```bash
+   # Native USB-CDC via OTG port
+   pio run -e freenove_esp32_s3_otg -t upload --upload-port /dev/cu.usbmodemXXXXX
+
+   # CH34x UART bridge
+   pio run -e freenove_esp32_s3_uart -t upload --upload-port /dev/cu.wchusbserialXXXXX
+   ```
+
+4. **If the port name keeps changing** (some macOS systems): rerun `ls /dev/cu.*` each time to grab the new path before uploading.
+
+5. **If VS Code keeps invoking the wrong environment** (e.g., `freenove_esp32_s3_uart` while your port is `/dev/cu.usbmodem*`), edit `platformio.ini` and set:
+   ```ini
+   default_envs = freenove_esp32_s3_otg
+   ```
+   If you truly are on the CH34x port instead, swap that line to `freenove_esp32_s3_uart` so the flags and port expectations match the USB path you are using.
+
+If you still see the error after matching env + port and closing all monitors, unplug/replug the USB cable and retry.

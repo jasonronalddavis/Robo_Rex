@@ -2,15 +2,24 @@
 
 Based on Reddit community feedback and common ESP32-S3 issues.
 
-## 🔧 Critical Fix Applied: Board Configuration Mismatch
+## 🔧 Pick the correct PlatformIO environment first
 
-**ISSUE FOUND**: Your `platformio.ini` had mismatched environment and board names.
+Two environments now live in `platformio.ini` so you can try **both** USB paths without manually toggling flags. The default now targets the native OTG CDC port because the latest uploads and serial output are coming from `/dev/tty.usbmodem*`:
 
-**FIXED**:
-- Changed `[env:adafruit_feather_esp32s3]` → `[env:freenove_esp32_s3_wroom]`
-- Now matches `board = freenove_esp32_s3_wroom`
+- `freenove_esp32_s3_otg` → Native USB-CDC via the OTG port (`/dev/tty.usbmodem*` on macOS). Includes `-DARDUINO_USB_MODE=1` and `-DARDUINO_USB_CDC_ON_BOOT=1`.
+- `freenove_esp32_s3_uart` → External CH34x USB-UART bridge (`/dev/tty.wchusbserial*` on macOS). **No ARDUINO_USB_* flags.**
 
-This mismatch could cause USB enumeration and serial communication failures.
+Switch between them with `-e <env>` or by changing `default_envs` at the top of `platformio.ini`:
+
+```bash
+# Try native USB-CDC first (OTG port)
+pio run -e freenove_esp32_s3_otg -t upload && pio device monitor -e freenove_esp32_s3_otg
+
+# If that fails, try the CH34x UART port
+pio run -e freenove_esp32_s3_uart -t upload && pio device monitor -e freenove_esp32_s3_uart
+```
+
+This mirrors the Reddit guidance: test the bare board on the OTG port first, then fall back to the UART/CH34x path if needed.
 
 ---
 
@@ -71,6 +80,10 @@ This mismatch could cause USB enumeration and serial communication failures.
 - Connected directly to ESP32-S3 native USB
 - Requires `-DARDUINO_USB_CDC_ON_BOOT=1` flag (already added ✅)
 - No external USB-UART chip
+
+**Quick environment sanity check** (matches the port names you see):
+- If macOS shows `/dev/cu.usbmodem*`, use `-e freenove_esp32_s3_otg` (or set `default_envs` to that).
+- If macOS shows `/dev/cu.wchusbserial*`, use `-e freenove_esp32_s3_uart` (and set `default_envs` accordingly).
 
 **Check in Device Manager (Windows) or `ls /dev/tty*` (Linux/Mac)**:
 - Should show as "USB JTAG/serial debug unit" or similar
