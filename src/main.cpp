@@ -217,6 +217,9 @@ void setup() {
     delay(10);
   }
 
+  // Basic bring-up heartbeat so the monitor always shows activity
+  Serial.println(F("Hello World! Serial link is active."));
+
   Serial.println();
   Serial.println(F("============================================"));
   Serial.println(F("    ROBO REX - 16 SERVO HYBRID MODE"));
