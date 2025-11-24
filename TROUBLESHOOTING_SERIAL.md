@@ -4,7 +4,7 @@ Based on Reddit community feedback and common ESP32-S3 issues.
 
 ## 🔧 Pick the correct PlatformIO environment first
 
-Two environments now live in `platformio.ini` so you can try **both** USB paths without manually toggling flags. The default now targets the native OTG CDC port because the latest uploads and serial output are coming from `/dev/tty.usbmodem*`:
+Two environments now live in `platformio.ini` so you can try **both** USB paths without manually toggling flags:
 
 - `freenove_esp32_s3_otg` → Native USB-CDC via the OTG port (`/dev/tty.usbmodem*` on macOS). Includes `-DARDUINO_USB_MODE=1` and `-DARDUINO_USB_CDC_ON_BOOT=1`.
 - `freenove_esp32_s3_uart` → External CH34x USB-UART bridge (`/dev/tty.wchusbserial*` on macOS). **No ARDUINO_USB_* flags.**

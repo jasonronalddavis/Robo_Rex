@@ -235,8 +235,6 @@ void setup() {
   Serial.println(servoBus.isPcaPresent() ? F("YES") : F("NO"));
   if (!beginOk) {
     Serial.println(F("[Hybrid] WARNING: ServoBus initialization reported an error; check PCA9685 wiring"));
-  } else {
-    Serial.println(F("[Hybrid] PCA9685 communication test passed"));
   }
 
   // Initialize servo functions
